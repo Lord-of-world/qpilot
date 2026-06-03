@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🛩 qpilot
+<img src="https://raw.githubusercontent.com/broxhq/.github/main/profile/assets/logo.svg" width="64" alt="qpilot" />
+
+# qpilot
 
 **AI agent that runs your manual test cases in a real browser**
 
