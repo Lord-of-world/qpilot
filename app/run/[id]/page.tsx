@@ -56,7 +56,7 @@ export default function RunPage({ params }: PageProps) {
     gotSnapshot.current = false;
     const es = new EventSource(`/api/run/${id}/stream`);
     es.onmessage = (msg) => {
-      // каждый кадр несёт актуальный Run целиком; первый — ещё и backlog событий
+      // every frame carries the current Run in full; the first also carries the event backlog
       const data = JSON.parse(msg.data) as {
         run: Omit<Run, "events">;
         events?: RunEvent[];
@@ -560,6 +560,7 @@ function describeAction(name?: string, input?: unknown): string {
       return `Scrolling ${dirs || "0px"}${target}`;
     }
     case "press":    return `Pressing ${p.key ?? ""}`;
+    case "dismiss":  return "Closing overlay";
     case "wait":     return `Waiting ${p.ms ?? ""} ms`;
     case "ask_user": return "Asking user";
     default:         return name ?? "action";
