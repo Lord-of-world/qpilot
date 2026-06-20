@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+async function createRun(testCase: string, headless: boolean, router: ReturnType<typeof useRouter>): Promise<void> {
+  const res = await fetch("/api/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ testCase, headless }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "error");
+  router.push(`/run/${json.id}`);
+}
+
 const EXAMPLE = `TC-001 — Login and add item to cart
 URL: https://www.saucedemo.com/
 Credentials: standard_user / secret_sauce
@@ -29,24 +40,21 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
 
-  async function onSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function startRun(headless: boolean) {
     if (!text.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ testCase: text }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "error");
-      router.push(`/run/${json.id}`);
+      await createRun(text, headless, router);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
     }
+  }
+
+  function onSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
+    e.preventDefault();
+    startRun(true);
   }
 
   return (
@@ -100,14 +108,17 @@ export default function Home() {
             size="lg"
             className="gap-2 font-medium"
           >
-            {busy ? (
-              "Running…"
-            ) : (
-              <>
-                Run
-                <ArrowRight className="size-4" />
-              </>
-            )}
+            {busy ? "Running…" : <><ArrowRight className="size-4" />Run</>}
+          </Button>
+          <Button
+            type="button"
+            disabled={!text.trim() || busy}
+            size="lg"
+            variant="secondary"
+            onClick={() => startRun(false)}
+            className="gap-2"
+          >
+            {busy ? "Running…" : <><ArrowRight className="size-4" />Run with preview</>}
           </Button>
           <Button
             type="button"
