@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const headless = body.headless !== false;
   const title = firstNonEmptyLine(testCase) || "Untitled test";
   const id = crypto.randomBytes(6).toString("hex");
-  createRun(id, title);
+  createRun(id, title, testCase);
 
   runAgent(id, testCase, headless).catch((err) => {
     console.error("agent crashed", err);
