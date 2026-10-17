@@ -33,6 +33,107 @@ let mainWindow = null;
 let settingsWindow = null;
 let quitting = false;
 
+// ── strings ─────────────────────────────────────────────────────────────────
+// Electron's built-in role labels are English-only, so the menu sets its own
+// labels in the macOS system language. Same ru/en split as lib/i18n.ts.
+
+const STRINGS = {
+  en: {
+    about: "About qpilot",
+    settings: "Settings…",
+    showLog: "Show Server Log",
+    services: "Services",
+    hide: "Hide qpilot",
+    hideOthers: "Hide Others",
+    unhide: "Show All",
+    quit: "Quit qpilot",
+    edit: "Edit",
+    undo: "Undo",
+    redo: "Redo",
+    cut: "Cut",
+    copy: "Copy",
+    paste: "Paste",
+    pasteAndMatchStyle: "Paste and Match Style",
+    delete: "Delete",
+    selectAll: "Select All",
+    view: "View",
+    home: "Home",
+    reload: "Reload",
+    devTools: "Developer Tools",
+    resetZoom: "Actual Size",
+    zoomIn: "Zoom In",
+    zoomOut: "Zoom Out",
+    fullScreen: "Toggle Full Screen",
+    window: "Window",
+    minimize: "Minimize",
+    zoom: "Zoom",
+    front: "Bring All to Front",
+    serverStoppedTitle: "qpilot server stopped",
+    serverStopped: (code, log) => `The built-in server exited unexpectedly (code ${code}). See the log:\n${log}`,
+    startFailedTitle: "qpilot could not start",
+    noBuild: (path) => `Server build not found at ${path}. Run: npm run build`,
+    exitedDuringStartup: "the server exited during startup",
+    startTimeout: "the server did not start within 30 seconds",
+    savedButFailed: (msg) => `Saved, but the server failed to start: ${msg}`,
+    tokenRequired: "API token is required",
+    keyRequired: "Anthropic API key is required",
+    baseUrlRequired: "Base URL is required",
+    baseUrlInvalid: "Base URL must start with http:// or https://",
+    modelRequired: "Model id is required",
+  },
+  ru: {
+    about: "О программе qpilot",
+    settings: "Настройки…",
+    showLog: "Показать журнал сервера",
+    services: "Службы",
+    hide: "Скрыть qpilot",
+    hideOthers: "Скрыть остальные",
+    unhide: "Показать все",
+    quit: "Завершить qpilot",
+    edit: "Правка",
+    undo: "Отменить",
+    redo: "Повторить",
+    cut: "Вырезать",
+    copy: "Скопировать",
+    paste: "Вставить",
+    pasteAndMatchStyle: "Вставить и согласовать стиль",
+    delete: "Удалить",
+    selectAll: "Выбрать все",
+    view: "Вид",
+    home: "На главную",
+    reload: "Перезагрузить",
+    devTools: "Инструменты разработчика",
+    resetZoom: "Фактический размер",
+    zoomIn: "Увеличить",
+    zoomOut: "Уменьшить",
+    fullScreen: "Полноэкранный режим",
+    window: "Окно",
+    minimize: "Свернуть",
+    zoom: "Изменить масштаб",
+    front: "Все окна — на передний план",
+    serverStoppedTitle: "Сервер qpilot остановился",
+    serverStopped: (code, log) => `Встроенный сервер неожиданно завершился (код ${code}). Подробности в журнале:\n${log}`,
+    startFailedTitle: "Не удалось запустить qpilot",
+    noBuild: (path) => `Сборка сервера не найдена: ${path}. Выполните: npm run build`,
+    exitedDuringStartup: "сервер завершился во время запуска",
+    startTimeout: "сервер не запустился за 30 секунд",
+    savedButFailed: (msg) => `Настройки сохранены, но сервер не запустился: ${msg}`,
+    tokenRequired: "Укажите API-токен",
+    keyRequired: "Укажите API-ключ Anthropic",
+    baseUrlRequired: "Укажите Base URL",
+    baseUrlInvalid: "Base URL должен начинаться с http:// или https://",
+    modelRequired: "Укажите ID модели",
+  },
+};
+
+// set in whenReady — the system language is only known once the app is ready
+let L = STRINGS.en;
+
+function systemStrings() {
+  const lang = (app.getPreferredSystemLanguages()[0] || app.getLocale() || "").toLowerCase();
+  return lang.startsWith("ru") ? STRINGS.ru : STRINGS.en;
+}
+
 // ── config (same format as bin/qa-agent.js) ─────────────────────────────────
 
 function loadConfig() {
@@ -57,14 +158,14 @@ function normalizeConfig(input) {
   const model = s(input?.model);
   const baseURL = s(input?.baseURL);
 
-  if (!apiKey) throw new Error(provider === "custom" ? "API token is required" : "Anthropic API key is required");
+  if (!apiKey) throw new Error(provider === "custom" ? L.tokenRequired : L.keyRequired);
   if (provider === "custom") {
-    if (!baseURL) throw new Error("Base URL is required");
-    if (!isUrl(baseURL)) throw new Error("Base URL must start with http:// or https://");
-    if (!model) throw new Error("Model id is required");
+    if (!baseURL) throw new Error(L.baseUrlRequired);
+    if (!isUrl(baseURL)) throw new Error(L.baseUrlInvalid);
+    if (!model) throw new Error(L.modelRequired);
     return { provider, baseURL, apiKey, model };
   }
-  if (baseURL && !isUrl(baseURL)) throw new Error("Base URL must start with http:// or https://");
+  if (baseURL && !isUrl(baseURL)) throw new Error(L.baseUrlInvalid);
   return {
     provider,
     apiKey,
@@ -111,7 +212,7 @@ function logStream() {
 async function waitForServer(url, child, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (child.exited) throw new Error("the server exited during startup");
+    if (child.exited) throw new Error(L.exitedDuringStartup);
     try {
       const res = await fetch(`${url}/api/runs`);
       if (res.ok) return;
@@ -120,12 +221,12 @@ async function waitForServer(url, child, timeoutMs = 30_000) {
     }
     await new Promise((r) => setTimeout(r, 150));
   }
-  throw new Error("the server did not start within 30 seconds");
+  throw new Error(L.startTimeout);
 }
 
 async function startServer(cfg) {
   if (!fs.existsSync(SERVER_PATH)) {
-    throw new Error(`Server build not found at ${SERVER_PATH}. Run: npm run build`);
+    throw new Error(L.noBuild(SERVER_PATH));
   }
   const port = await findFreePort(FIRST_PORT);
   const log = logStream();
@@ -159,8 +260,8 @@ async function startServer(cfg) {
     if (server === child && !quitting) {
       server = null;
       dialog.showErrorBox(
-        "qpilot server stopped",
-        `The built-in server exited unexpectedly (code ${code}). See the log:\n${join(app.getPath("logs"), "server.log")}`,
+        L.serverStoppedTitle,
+        L.serverStopped(code, join(app.getPath("logs"), "server.log")),
       );
     }
   });
@@ -274,7 +375,7 @@ ipcMain.handle("settings:save", async (_e, input) => {
   try {
     await restartServer(cfg);
   } catch (err) {
-    return { ok: false, error: `Saved, but the server failed to start: ${err.message}` };
+    return { ok: false, error: L.savedButFailed(err.message) };
   }
   if (mainWindow) mainWindow.loadURL(serverUrl);
   else openMainWindow();
@@ -287,34 +388,60 @@ function buildMenu() {
     {
       label: app.name,
       submenu: [
-        { role: "about" },
+        { role: "about", label: L.about },
         { type: "separator" },
-        { label: "Settings…", accelerator: "CmdOrCtrl+,", click: openSettings },
-        { label: "Show server log", click: () => shell.openPath(join(app.getPath("logs"), "server.log")) },
+        { label: L.settings, accelerator: "CmdOrCtrl+,", click: openSettings },
+        { label: L.showLog, click: () => shell.openPath(join(app.getPath("logs"), "server.log")) },
         { type: "separator" },
-        { role: "hide" },
-        { role: "hideOthers" },
-        { role: "unhide" },
+        { role: "services", label: L.services },
         { type: "separator" },
-        { role: "quit" },
+        { role: "hide", label: L.hide },
+        { role: "hideOthers", label: L.hideOthers },
+        { role: "unhide", label: L.unhide },
+        { type: "separator" },
+        { role: "quit", label: L.quit },
       ],
     },
-    { role: "editMenu" }, // Cmd+C / Cmd+V in the test case box need this on macOS
     {
-      label: "View",
+      // Cmd+C / Cmd+V in the test case box need this menu on macOS
+      label: L.edit,
       submenu: [
-        { label: "Home", accelerator: "CmdOrCtrl+Shift+H", click: () => serverUrl && mainWindow?.loadURL(serverUrl) },
-        { role: "reload" },
-        { role: "toggleDevTools" },
+        { role: "undo", label: L.undo },
+        { role: "redo", label: L.redo },
         { type: "separator" },
-        { role: "resetZoom" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
-        { type: "separator" },
-        { role: "togglefullscreen" },
+        { role: "cut", label: L.cut },
+        { role: "copy", label: L.copy },
+        { role: "paste", label: L.paste },
+        { role: "pasteAndMatchStyle", label: L.pasteAndMatchStyle },
+        { role: "delete", label: L.delete },
+        { role: "selectAll", label: L.selectAll },
       ],
     },
-    { role: "windowMenu" },
+    {
+      label: L.view,
+      submenu: [
+        { label: L.home, accelerator: "CmdOrCtrl+Shift+H", click: () => serverUrl && mainWindow?.loadURL(serverUrl) },
+        { role: "reload", label: L.reload },
+        { role: "toggleDevTools", label: L.devTools },
+        { type: "separator" },
+        { role: "resetZoom", label: L.resetZoom },
+        { role: "zoomIn", label: L.zoomIn },
+        { role: "zoomOut", label: L.zoomOut },
+        { type: "separator" },
+        { role: "togglefullscreen", label: L.fullScreen },
+      ],
+    },
+    {
+      // role "window" lets macOS add the open-windows list and tiling items
+      label: L.window,
+      role: "window",
+      submenu: [
+        { role: "minimize", label: L.minimize },
+        { role: "zoom", label: L.zoom },
+        { type: "separator" },
+        { role: "front", label: L.front },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -336,6 +463,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    L = systemStrings();
     buildMenu();
     const cfg = loadConfig();
     if (!cfg) {
@@ -346,7 +474,7 @@ if (!app.requestSingleInstanceLock()) {
       await startServer(cfg);
       openMainWindow();
     } catch (err) {
-      dialog.showErrorBox("qpilot could not start", err.message);
+      dialog.showErrorBox(L.startFailedTitle, err.message);
       openSettings();
     }
   });
