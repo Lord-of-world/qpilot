@@ -1,8 +1,8 @@
 import { execFile, type ExecFileException } from "node:child_process";
 import crypto from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
+import { QPILOT_HOME } from "./config";
 
 // Git repositories the user connected as a source of test cases. The list is
 // saved to ~/.qpilot/repos.json (mode 600 — it may hold access tokens) and each
@@ -13,7 +13,7 @@ import { join, resolve, sep } from "node:path";
 // The system git binary is used on purpose: it already knows the user's SSH
 // keys and credential helpers, so private repos often work without a token.
 
-const HOME = process.env.QPILOT_HOME || join(homedir(), ".qpilot");
+const HOME = QPILOT_HOME;
 const LIST_PATH = join(HOME, "repos.json");
 const CLONES = join(HOME, "repos");
 

@@ -74,6 +74,7 @@ export interface Dict {
     addFile: string;
     attachHint: string;
     remove: string;
+    settings: string;
     gitRepos: string;
     addRepo: string;
     noRepos: string;
@@ -100,6 +101,44 @@ export interface Dict {
     branchesLoading: string;
     noBranches: string;
     branchDefault: string;
+  };
+  settings: {
+    title: string;
+    back: string;
+    model: string;
+    provider: string;
+    anthropic: string;
+    custom: string;
+    apiKey: string;
+    apiToken: string;
+    keySaved: string;
+    keyFromEnv: string;
+    modelLabel: string;
+    modelHintAnthropic: string;
+    modelHintCustom: string;
+    modelsLoading: string;
+    modelsNeedKey: string;
+    refreshModels: string;
+    modelSearch: string;
+    noModels: string;
+    useTyped: string;
+    chooseModel: string;
+    defaultTag: string;
+    baseUrl: string;
+    baseUrlHintAnthropic: string;
+    baseUrlHintCustom: string;
+    optional: string;
+    appearance: string;
+    theme: string;
+    themeSystem: string;
+    themeLight: string;
+    themeDark: string;
+    save: string;
+    saving: string;
+    saved: string;
+    storedIn: string;
+    welcome: string;
+    welcomeSub: string;
   };
   action: {
     opening: string;
@@ -187,6 +226,7 @@ const en: Dict = {
     addFile: "Add file",
     attachHint: "optional — images, CSV or documents the test needs to upload",
     remove: "Remove",
+    settings: "Settings",
     gitRepos: "Git repositories",
     addRepo: "Connect repository",
     noRepos: "No repositories connected yet",
@@ -221,6 +261,44 @@ const en: Dict = {
     fail: "fail",
     skipped: "skipped",
     running: "running",
+  },
+  settings: {
+    title: "Settings",
+    back: "Back",
+    model: "Model",
+    provider: "Provider",
+    anthropic: "Anthropic (Claude)",
+    custom: "OpenAI-compatible",
+    apiKey: "Anthropic API key",
+    apiToken: "API token",
+    keySaved: "Saved key {hint} — leave empty to keep it",
+    keyFromEnv: "Using {hint} from the environment — leave empty to keep it",
+    modelLabel: "Model",
+    modelHintAnthropic: "Loaded live from Anthropic: every model your key can use.",
+    modelHintCustom: "Loaded from the endpoint's /models list. The model must support tool calling.",
+    modelsLoading: "Loading models…",
+    modelsNeedKey: "Enter the API key to load the models",
+    refreshModels: "Reload the list",
+    modelSearch: "Find a model or type its id…",
+    noModels: "No matching models",
+    useTyped: "Use “{id}”",
+    chooseModel: "Choose a model",
+    defaultTag: "default",
+    baseUrl: "Base URL",
+    baseUrlHintAnthropic: "Only to reach Claude through a corporate proxy. Leave empty for api.anthropic.com.",
+    baseUrlHintCustom: "The endpoint's OpenAI-compatible root, usually ending in /v1.",
+    optional: "optional",
+    appearance: "Appearance",
+    theme: "Theme",
+    themeSystem: "System",
+    themeLight: "Light",
+    themeDark: "Dark",
+    save: "Save",
+    saving: "Saving…",
+    saved: "Saved",
+    storedIn: "Stored in {path}",
+    welcome: "Connect a model to get started",
+    welcomeSub: "qpilot drives the browser with an AI model. Add your API key below — you can change it here any time.",
   },
   action: {
     opening: "Opening",
@@ -308,6 +386,7 @@ const ru: Dict = {
     addFile: "Добавить файл",
     attachHint: "необязательно — картинки, CSV или документы, которые нужно загрузить в тесте",
     remove: "Убрать",
+    settings: "Настройки",
     gitRepos: "Git-репозитории",
     addRepo: "Подключить репозиторий",
     noRepos: "Пока нет подключённых репозиториев",
@@ -342,6 +421,44 @@ const ru: Dict = {
     fail: "провал",
     skipped: "пропущен",
     running: "выполняется",
+  },
+  settings: {
+    title: "Настройки",
+    back: "Назад",
+    model: "Модель",
+    provider: "Провайдер",
+    anthropic: "Anthropic (Claude)",
+    custom: "OpenAI-совместимый",
+    apiKey: "API-ключ Anthropic",
+    apiToken: "API-токен",
+    keySaved: "Сохранён ключ {hint} — оставьте пустым, чтобы не менять",
+    keyFromEnv: "Используется {hint} из переменных окружения — оставьте пустым, чтобы не менять",
+    modelLabel: "Модель",
+    modelHintAnthropic: "Список загружается из Anthropic: все модели, доступные вашему ключу.",
+    modelHintCustom: "Список берётся из /models на сервере. Модель должна поддерживать tool calling.",
+    modelsLoading: "Загружаю модели…",
+    modelsNeedKey: "Введите API-ключ, чтобы загрузить модели",
+    refreshModels: "Обновить список",
+    modelSearch: "Найти модель или ввести её ID…",
+    noModels: "Подходящих моделей нет",
+    useTyped: "Использовать «{id}»",
+    chooseModel: "Выберите модель",
+    defaultTag: "по умолчанию",
+    baseUrl: "Base URL",
+    baseUrlHintAnthropic: "Только для доступа к Claude через корпоративный прокси. Оставьте пустым для api.anthropic.com.",
+    baseUrlHintCustom: "Корень OpenAI-совместимого API, обычно заканчивается на /v1.",
+    optional: "необязательно",
+    appearance: "Внешний вид",
+    theme: "Тема",
+    themeSystem: "Системная",
+    themeLight: "Светлая",
+    themeDark: "Тёмная",
+    save: "Сохранить",
+    saving: "Сохраняю…",
+    saved: "Сохранено",
+    storedIn: "Хранится в {path}",
+    welcome: "Подключите модель, чтобы начать",
+    welcomeSub: "qpilot управляет браузером с помощью ИИ-модели. Укажите API-ключ ниже — поменять его можно здесь в любой момент.",
   },
   action: {
     opening: "Открывает",

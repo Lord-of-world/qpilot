@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import './globals.css';
 
 const sans = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -13,7 +14,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={cn("dark", sans.variable, mono.variable)} suppressHydrationWarning>
+    // the theme script sets the `dark` class before hydration
+    <html lang="en" className={cn(sans.variable, mono.variable)} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="font-sans min-h-screen">
         {children}
       </body>

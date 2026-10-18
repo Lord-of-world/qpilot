@@ -19,7 +19,7 @@ To try the shell without packaging, run `npm --prefix desktop start`. It uses `.
 ## How it works
 
 - `main.js` starts `.next/standalone/server.js` (the same server the `qpilot` CLI runs) in an Electron utility process. It runs on 127.0.0.1 on the first free port from 3847 and opens a window on it. Quitting the app stops the server, which closes any Chrome it launched. Closing the window keeps the app and a running test alive, and clicking the Dock icon brings the window back.
-- The provider config is shared with the CLI in `~/.qpilot/config.json`. On first launch, or via **qpilot → Settings… (⌘,)**, `settings.html` asks for it, and saving restarts the server with the new config. The app never reads `ANTHROPIC_API_KEY` or `.env.local`, because GUI apps don't get a shell environment.
+- Provider settings are the web UI's **Settings** page (menu **qpilot → Settings… ⌘,** opens it). The server saves them to `~/.qpilot/config.json`, shared with the CLI, and reads that file on every run, so changes apply immediately. On first launch, with no provider yet, the app opens Settings by itself. The app never reads `ANTHROPIC_API_KEY` or `.env.local`, because GUI apps don't get a shell environment.
 - Links outside the local server open in the default browser.
 - The server log is at `~/Library/Logs/qpilot/server.log` (**qpilot → Show server log**).
 - `scripts/after-pack.js` copies the standalone server into `Contents/Resources/server`, because electron-builder's `extraResources` drops `node_modules`. It then ad-hoc signs the bundle.

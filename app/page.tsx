@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Bot, FileText, ArrowRight, Upload, Folder, X,
   Check, CircleAlert, Clock, Loader2, Square, CheckSquare,
-  ChevronDown, ChevronUp, Paperclip, GitBranch, RefreshCw, Plus, Trash2,
+  ChevronDown, ChevronUp, Paperclip, GitBranch, RefreshCw, Plus, Trash2, Settings as SettingsIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,8 @@ import type { RunStatus } from "@/lib/types";
 import type { RepoInfo } from "@/lib/repos";
 import { updateFavicon, resetFavicon } from "@/lib/favicon";
 import { dict, type Lang } from "@/lib/i18n";
+import { useDismiss } from "@/lib/hooks";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type RunSummary = { id: string; createdAt: number; status: RunStatus; title: string };
 // a test case file from a local folder or a connected git repo; read lazily
@@ -35,10 +37,10 @@ const MAX_ATTACHMENTS = 10;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 // shared surface tokens — one place to keep panels visually consistent
-const PANEL = "rounded-xl border border-white/7 overflow-hidden";
-const PANEL_HEAD = "px-4 py-2.5 bg-white/[0.02]";
+const PANEL = "rounded-xl border border-border overflow-hidden";
+const PANEL_HEAD = "px-4 py-2.5 bg-surface";
 const SECTION_LABEL =
-  "text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground/40";
+  "text-[10.5px] font-semibold uppercase tracking-widest text-subtle";
 
 const EXAMPLE = `TC-001 — Login and add item to cart
 URL: https://www.saucedemo.com/
@@ -136,6 +138,13 @@ export default function Home() {
   useEffect(() => {
     fetch("/api/runs").then(r => r.ok ? r.json() : []).then(setHistory).catch(() => {});
   }, []);
+
+  // no model configured yet (first launch) — start in Settings
+  useEffect(() => {
+    fetch("/api/settings").then(r => r.ok ? r.json() : null).then(s => {
+      if (s && !s.configured) router.replace("/settings?welcome=1");
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // saved repos; reopen the last used one if nothing else is loaded yet
   useEffect(() => {
@@ -489,7 +498,15 @@ export default function Home() {
 
   return (
     <main className="flex flex-col items-center min-h-screen px-6 pt-20 pb-24">
-      <div className="flex items-center justify-center size-11 rounded-2xl border border-white/10 bg-white/5 mb-6 shadow-lg">
+      <div className="absolute right-4 top-4 flex items-center gap-2 sm:right-6 sm:top-6">
+        <ThemeToggle labels={dict(lang).settings} />
+        <Link href="/settings" title={t.settings}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors">
+          <SettingsIcon className="size-3.5" />
+          <span className="hidden sm:inline">{t.settings}</span>
+        </Link>
+      </div>
+      <div className="flex items-center justify-center size-11 rounded-2xl border border-border bg-surface-hover mb-6 shadow-lg">
         <Bot className="size-5 text-foreground/80" />
       </div>
 
@@ -531,7 +548,7 @@ export default function Home() {
 
           {(mdFiles.length > 0 || activeRepo) && (
             <>
-              <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {mdFiles.length} .md {t.files}
               </span>
               <div className="ml-auto flex items-center">
@@ -540,7 +557,7 @@ export default function Home() {
                     onClick={() => syncRepo(activeRepo.id)}
                     disabled={repoSyncing || batchRunning}
                     title={t.syncRepo}
-                    className="size-7 p-0 text-muted-foreground/50 hover:text-foreground">
+                    className="size-7 p-0 text-subtle hover:text-foreground">
                     <RefreshCw className={cn("size-3.5", repoSyncing && "animate-spin")} />
                   </Button>
                 )}
@@ -548,7 +565,7 @@ export default function Home() {
                   onClick={clearFolder}
                   disabled={batchRunning}
                   title={t.clearList}
-                  className="size-7 p-0 text-muted-foreground/50 hover:text-foreground">
+                  className="size-7 p-0 text-subtle hover:text-foreground">
                   <X className="size-3.5" />
                 </Button>
               </div>
@@ -559,8 +576,8 @@ export default function Home() {
         {/* where the list comes from, when it's a repo */}
         {activeRepo && (
           <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono text-muted-foreground/45">
-              <span className="text-muted-foreground/70">{shortRepoUrl(activeRepo.url)}</span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono text-subtle">
+              <span className="text-muted-foreground">{shortRepoUrl(activeRepo.url)}</span>
               <BranchPicker
                 t={t}
                 repo={activeRepo}
@@ -579,7 +596,7 @@ export default function Home() {
               </div>
             )}
             {mdFiles.length === 0 && !repoError && !repoSyncing && (
-              <div className="text-xs text-muted-foreground/50">{t.noMdFiles}</div>
+              <div className="text-xs text-subtle">{t.noMdFiles}</div>
             )}
           </div>
         )}
@@ -595,16 +612,16 @@ export default function Home() {
         <div className={cn(sideBySide && "flex gap-4 items-start")}>
         {mdFiles.length > 0 && (
           <div className={cn(sideBySide ? "w-64 shrink-0" : "w-full", "space-y-3")}>
-            <ul className={cn(PANEL, "divide-y divide-white/5")}>
+            <ul className={cn(PANEL, "divide-y divide-border")}>
               {/* select-all row */}
               <li>
                 <div className={cn(PANEL_HEAD, "flex items-center gap-3 py-2")}>
                   <button type="button" onClick={toggleAll}
-                    className="flex items-center gap-2 shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors">
+                    className="flex items-center gap-2 shrink-0 text-subtle hover:text-foreground transition-colors">
                     {allChecked
-                      ? <CheckSquare className="size-4 text-foreground/70" />
+                      ? <CheckSquare className="size-4 text-foreground/75" />
                       : <Square className="size-4" />}
-                    <span className="text-[11px] text-muted-foreground/70 select-none">
+                    <span className="text-[11px] text-muted-foreground select-none">
                       {checkedCount > 0 ? `${checkedCount} ${t.selected}` : t.selectAll}
                     </span>
                   </button>
@@ -628,7 +645,7 @@ export default function Home() {
 
                   {batchRunning && (
                     <div className="ml-auto flex items-center gap-2">
-                      <Loader2 className="size-3.5 text-muted-foreground/50 animate-spin" />
+                      <Loader2 className="size-3.5 text-subtle animate-spin" />
                       <Button type="button" size="sm" variant="ghost"
                         className="h-7 text-xs text-destructive hover:text-destructive"
                         onClick={stopBatch}>
@@ -642,9 +659,9 @@ export default function Home() {
               {mdFiles.map(f => (
                 <li key={f.name} className="flex items-center">
                   <button type="button" onClick={() => toggleCheck(f.name)}
-                    className="shrink-0 px-4 py-2.5 text-muted-foreground/50 hover:text-foreground transition-colors">
+                    className="shrink-0 px-4 py-2.5 text-subtle hover:text-foreground transition-colors">
                     {checkedFiles.has(f.name)
-                      ? <CheckSquare className="size-4 text-foreground/70" />
+                      ? <CheckSquare className="size-4 text-foreground/75" />
                       : <Square className="size-4" />}
                   </button>
                   <button type="button" onClick={() => onSelectFile(f)}
@@ -666,25 +683,25 @@ export default function Home() {
                 <div className={cn(PANEL_HEAD, "flex items-center gap-2")}>
                   <span className={SECTION_LABEL}>{t.batchRun}</span>
                   {_batchStartedAt && (
-                    <span className="ml-auto text-[11px] font-mono tabular-nums text-muted-foreground/40">
+                    <span className="ml-auto text-[11px] font-mono tabular-nums text-subtle">
                       {formatDuration((_batchFinishedAt ?? now) - _batchStartedAt)}
                     </span>
                   )}
                 </div>
-                <ul className="divide-y divide-white/5">
+                <ul className="divide-y divide-border">
                   {batchItems.map((item, i) => (
                     <li key={i} className="flex items-center gap-3 px-4 py-2.5">
                       <BatchStatusIcon status={item.status} />
                       {item.id
                         ? <Link href={`/run/${item.id}`}
-                            className="flex-1 min-w-0 text-sm font-mono text-foreground/70 hover:text-foreground truncate transition-colors">
+                            className="flex-1 min-w-0 text-sm font-mono text-foreground/75 hover:text-foreground truncate transition-colors">
                             {item.file.name}
                           </Link>
-                        : <span className="flex-1 min-w-0 text-sm font-mono text-muted-foreground/40 truncate">
+                        : <span className="flex-1 min-w-0 text-sm font-mono text-subtle truncate">
                             {item.file.name}
                           </span>
                       }
-                      <span className="shrink-0 text-[11px] font-mono tabular-nums text-muted-foreground/30">
+                      <span className="shrink-0 text-[11px] font-mono tabular-nums text-faint">
                         {item.startedAt
                           ? formatDuration((item.finishedAt ?? (item.status === "running" ? now : item.startedAt)) - item.startedAt)
                           : ""}
@@ -694,7 +711,7 @@ export default function Home() {
                           "shrink-0 text-[10.5px] font-semibold uppercase tracking-wide",
                           item.status === "passed" ? "text-success" :
                           item.status === "failed" || item.status === "error" ? "text-destructive" :
-                          "text-muted-foreground/40"
+                          "text-subtle"
                         )}>
                           {item.status}
                         </span>
@@ -712,7 +729,7 @@ export default function Home() {
           <form ref={formRef} onSubmit={onSubmit} className={cn("space-y-3", sideBySide && "flex-1 min-w-0")}>
             <div className={cn(
               "relative rounded-xl border transition-all duration-200",
-              focused ? "border-white/15 shadow-[0_0_0_3px_oklch(0.5_0.1_270_/_12%)]" : "border-white/7",
+              focused ? "border-border-strong ring-3 ring-ring/15" : "border-border",
             )}>
               <Textarea
                 ref={textareaRef}
@@ -737,7 +754,7 @@ export default function Home() {
               {textOverflowing && (
                 <button type="button"
                   onClick={() => setTextExpanded(v => !v)}
-                  className="absolute bottom-2 right-3 flex items-center gap-1 rounded-md border border-white/10 bg-background/80 backdrop-blur px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+                  className="absolute bottom-2 right-3 flex items-center gap-1 rounded-md border border-border bg-background/80 backdrop-blur px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
                   {textExpanded
                     ? <><ChevronUp className="size-3.5" />{t.collapse}</>
                     : <><ChevronDown className="size-3.5" />{t.expand}</>}
@@ -787,10 +804,10 @@ export default function Home() {
             {history.map(run => (
               <li key={run.id}>
                 <Link href={`/run/${run.id}`}
-                  className="flex items-center gap-3 rounded-xl border border-white/7 px-4 py-3 hover:bg-white/5 transition-colors">
+                  className="flex items-center gap-3 rounded-xl border border-border px-4 py-3 hover:bg-surface-hover transition-colors">
                   <RunStatusIcon status={run.status} />
                   <span className="flex-1 min-w-0 text-sm text-foreground/80 truncate">{run.title}</span>
-                  <span className="shrink-0 text-[11px] text-muted-foreground/40 font-mono tabular-nums">
+                  <span className="shrink-0 text-[11px] text-subtle font-mono tabular-nums">
                     {formatTime(run.createdAt)}
                   </span>
                 </Link>
@@ -822,28 +839,28 @@ function AttachmentsPanel({
     <div className="flex flex-wrap items-center gap-1.5">
       <Button type="button" variant="ghost" size="sm"
         onClick={onPick}
-        className="gap-2 text-muted-foreground/70 hover:text-foreground">
+        className="gap-2 text-muted-foreground hover:text-foreground">
         <Paperclip className="size-3.5" />
         {files.length ? t.addFile : t.attach}
       </Button>
 
       {files.length === 0 ? (
-        <span className="text-[11px] text-muted-foreground/35">
+        <span className="text-[11px] text-subtle">
           {t.attachHint}
         </span>
       ) : (
         files.map(f => (
           <span key={f.name}
-            className="group inline-flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.03] pl-2.5 pr-1 py-1">
-            <span className="text-[11px] font-mono text-foreground/70 max-w-[180px] truncate">
+            className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface pl-2.5 pr-1 py-1">
+            <span className="text-[11px] font-mono text-foreground/75 max-w-[180px] truncate">
               {f.name}
             </span>
-            <span className="text-[10px] tabular-nums text-muted-foreground/35">
+            <span className="text-[10px] tabular-nums text-subtle">
               {formatSize(f.size)}
             </span>
             <button type="button" onClick={() => onRemove(f.name)}
               title={`${t.remove} ${f.name}`}
-              className="rounded p-0.5 text-muted-foreground/40 hover:text-destructive transition-colors">
+              className="rounded p-0.5 text-subtle hover:text-destructive transition-colors">
               <X className="size-3" />
             </button>
           </span>
@@ -861,23 +878,6 @@ function shortRepoUrl(url: string): string {
     .replace(/^[^@/]+@/, "")
     .replace(/\.git$/, "")
     .replace(/\/+$/, "");
-}
-
-/** Close a dropdown on a click outside `ref` or on Escape. */
-function useDismiss(ref: React.RefObject<HTMLElement | null>, open: boolean, close: () => void) {
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) close();
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** Dropdown of saved repositories: switch, remove, connect a new one. */
@@ -910,21 +910,21 @@ function RepoPicker({
       </Button>
 
       {open && (
-        <div className="absolute left-0 top-full z-40 mt-1.5 w-96 max-w-[calc(100vw-3rem)] rounded-xl border border-white/10 bg-popover shadow-xl overflow-hidden">
+        <div className="absolute left-0 top-full z-40 mt-1.5 w-96 max-w-[calc(100vw-3rem)] rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
           <div className={cn(PANEL_HEAD, SECTION_LABEL, "py-2")}>{t.gitRepos}</div>
           {repos.length === 0 ? (
-            <div className="px-4 py-3 text-xs text-muted-foreground/60">{t.noRepos}</div>
+            <div className="px-4 py-3 text-xs text-muted-foreground">{t.noRepos}</div>
           ) : (
-            <ul className="max-h-72 overflow-y-auto divide-y divide-white/5">
+            <ul className="max-h-72 overflow-y-auto divide-y divide-border">
               {repos.map(r => (
                 <li key={r.id} className="group flex items-center">
                   <button type="button"
                     onClick={() => { setOpen(false); onOpen(r.id); }}
-                    className="flex-1 min-w-0 flex items-start gap-2.5 px-4 py-2.5 text-left hover:bg-white/[0.04] transition-colors">
+                    className="flex-1 min-w-0 flex items-start gap-2.5 px-4 py-2.5 text-left hover:bg-surface-hover transition-colors">
                     <Check className={cn("size-3.5 mt-0.5 shrink-0", r.id === activeId ? "text-foreground/80" : "opacity-0")} />
                     <span className="min-w-0">
                       <span className="block text-sm text-foreground/85 truncate">{r.name}</span>
-                      <span className="block text-[11px] font-mono text-muted-foreground/45 truncate">
+                      <span className="block text-[11px] font-mono text-subtle truncate">
                         {shortRepoUrl(r.url)}{r.branch ? ` · ${r.branch}` : ""}{r.path ? ` · /${r.path}` : ""}
                       </span>
                     </span>
@@ -932,7 +932,7 @@ function RepoPicker({
                   <button type="button"
                     onClick={() => { setOpen(false); onRemove(r); }}
                     title={t.remove}
-                    className="shrink-0 px-3 py-2.5 text-muted-foreground/30 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-destructive transition">
+                    className="shrink-0 px-3 py-2.5 text-faint opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-destructive transition">
                     <Trash2 className="size-3.5" />
                   </button>
                 </li>
@@ -941,7 +941,7 @@ function RepoPicker({
           )}
           <button type="button"
             onClick={() => { setOpen(false); onAdd(); }}
-            className="w-full flex items-center gap-2 border-t border-white/7 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.04] transition-colors">
+            className="w-full flex items-center gap-2 border-t border-border px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors">
             <Plus className="size-3.5" />{t.addRepo}
           </button>
         </div>
@@ -991,15 +991,15 @@ function BranchPicker({
       <button type="button" disabled={disabled}
         onClick={() => setOpen(v => !v)}
         title={t.switchBranch}
-        className="inline-flex items-center gap-1 rounded-md px-1 -mx-1 text-muted-foreground/70 hover:text-foreground hover:bg-white/5 disabled:pointer-events-none disabled:opacity-50 transition-colors">
+        className="inline-flex items-center gap-1 rounded-md px-1 -mx-1 text-muted-foreground hover:text-foreground hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-50 transition-colors">
         <GitBranch className="size-3" />
         <span className="max-w-48 truncate">{repo.branch ?? "—"}</span>
         <ChevronDown className="size-3 opacity-60" />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-40 mt-1.5 w-80 max-w-[calc(100vw-3rem)] rounded-xl border border-white/10 bg-popover shadow-xl overflow-hidden font-sans">
-          <div className="p-2 border-b border-white/7">
+        <div className="absolute left-0 top-full z-40 mt-1.5 w-80 max-w-[calc(100vw-3rem)] rounded-xl border border-border bg-popover shadow-xl overflow-hidden font-sans">
+          <div className="p-2 border-b border-border">
             <Input value={query} onChange={e => setQuery(e.target.value)}
               placeholder={t.branchSearch} autoFocus spellCheck={false}
               onKeyDown={e => {
@@ -1013,22 +1013,22 @@ function BranchPicker({
               <span className="break-words min-w-0">{loadError}</span>
             </div>
           ) : !list ? (
-            <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground/60">
+            <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" />{t.branchesLoading}
             </div>
           ) : shown.length === 0 ? (
-            <div className="px-3 py-2.5 text-xs text-muted-foreground/60">{t.noBranches}</div>
+            <div className="px-3 py-2.5 text-xs text-muted-foreground">{t.noBranches}</div>
           ) : (
             <ul className="max-h-72 overflow-y-auto py-1">
               {shown.map(b => (
                 <li key={b}>
                   <button type="button"
                     onClick={() => { setOpen(false); if (b !== repo.branch) onSwitch(b); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/[0.04] transition-colors">
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-surface-hover transition-colors">
                     <Check className={cn("size-3.5 shrink-0", b === repo.branch ? "text-foreground/80" : "opacity-0")} />
                     <span className="flex-1 min-w-0 truncate font-mono text-[12px] text-foreground/85">{b}</span>
                     {b === list.defaultBranch && (
-                      <span className="shrink-0 rounded border border-white/10 px-1.5 text-[10px] text-muted-foreground/60">{t.branchDefault}</span>
+                      <span className="shrink-0 rounded border border-border px-1.5 text-[10px] text-muted-foreground">{t.branchDefault}</span>
                     )}
                   </button>
                 </li>
@@ -1089,13 +1089,13 @@ function AddRepoDialog({
     <label className="block space-y-1">
       <span className="flex items-baseline justify-between gap-2 text-xs font-medium text-foreground/80">
         <span className="truncate">{label}</span>
-        {opts.optional && <span className="shrink-0 text-[10.5px] font-normal text-muted-foreground/40">{t.optional}</span>}
+        {opts.optional && <span className="shrink-0 text-[10.5px] font-normal text-subtle">{t.optional}</span>}
       </span>
       <Input value={form[k]} onChange={set(k)} type={opts.type ?? "text"}
         placeholder={opts.placeholder} autoFocus={opts.autoFocus}
         spellCheck={false} autoComplete="off" disabled={busy}
         className="font-mono text-[12.5px]" />
-      <span className="block text-[11px] leading-snug text-muted-foreground/50">{hint}</span>
+      <span className="block text-[11px] leading-snug text-subtle">{hint}</span>
     </label>
   );
 
@@ -1145,16 +1145,16 @@ function AddRepoDialog({
 
 function BatchStatusIcon({ status }: { status: "queued" | "skipped" | RunStatus }) {
   if (status === "running")
-    return <Loader2 className="size-3.5 shrink-0 text-muted-foreground/50 animate-spin" />;
+    return <Loader2 className="size-3.5 shrink-0 text-subtle animate-spin" />;
   if (status === "passed")
     return <Check className="size-3.5 shrink-0 text-success" strokeWidth={2.5} />;
   if (status === "failed" || status === "error")
     return <CircleAlert className="size-3.5 shrink-0 text-destructive" />;
   if (status === "paused")
-    return <span className="size-3.5 shrink-0 text-[10px] text-muted-foreground/40 font-mono">▐▐</span>;
+    return <span className="size-3.5 shrink-0 text-[10px] text-subtle font-mono">▐▐</span>;
   if (status === "skipped")
-    return <span className="size-3.5 shrink-0 text-[10px] text-muted-foreground/30 font-mono">—</span>;
-  return <span className="size-3.5 shrink-0 rounded-sm border border-white/15 inline-block" />;
+    return <span className="size-3.5 shrink-0 text-[10px] text-faint font-mono">—</span>;
+  return <span className="size-3.5 shrink-0 rounded-sm border border-border-strong inline-block" />;
 }
 
 function RunStatusIcon({ status }: { status: RunStatus }) {
@@ -1162,7 +1162,7 @@ function RunStatusIcon({ status }: { status: RunStatus }) {
     return <Check className="size-3.5 shrink-0 text-success" strokeWidth={2.5} />;
   if (status === "failed" || status === "error")
     return <CircleAlert className="size-3.5 shrink-0 text-destructive" />;
-  return <Clock className="size-3.5 shrink-0 text-muted-foreground/40" />;
+  return <Clock className="size-3.5 shrink-0 text-subtle" />;
 }
 
 function formatSize(bytes: number): string {
