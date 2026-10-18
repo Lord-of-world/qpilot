@@ -23,7 +23,7 @@ import { dict, type Lang } from "@/lib/i18n";
 type RunSummary = { id: string; createdAt: number; status: RunStatus; title: string };
 // a test case file from a local folder or a connected git repo; read lazily
 type MdFile = { name: string; load: () => Promise<string> };
-type RepoFiles = { repo: RepoInfo; files: string[] };
+type RepoFiles = { repo: RepoInfo; files: string[]; error?: string };
 type HomeDict = ReturnType<typeof dict>["home"];
 type BatchItem = { file: MdFile; id: string | null; status: "queued" | "skipped" | RunStatus; startedAt?: number; finishedAt?: number };
 
@@ -241,10 +241,11 @@ export default function Home() {
     setActiveRepoSaved(id);
     try {
       // local clone first — instant — then pull in the background
-      const { repo, files } = await apiJson<RepoFiles>(`/api/repos/${id}/files`);
+      const { repo, files, error } = await apiJson<RepoFiles>(`/api/repos/${id}/files`);
       if (_activeRepoId !== id) return;
       upsertRepo(repo);
       showFiles(repoMdFiles(id, files));
+      if (error) setRepoError(error);
     } catch (err) {
       if (_activeRepoId === id) setRepoError(err instanceof Error ? err.message : String(err));
       return;
@@ -252,14 +253,35 @@ export default function Home() {
     syncRepo(id);
   }
 
+  async function switchBranch(id: string, branch: string) {
+    setRepoSyncing(true);
+    setRepoError(null);
+    try {
+      const { repo, files, error } = await apiJson<RepoFiles>(`/api/repos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branch }),
+      });
+      upsertRepo(repo);
+      if (_activeRepoId !== id) return;
+      showFiles(repoMdFiles(id, files));
+      if (error) setRepoError(error);
+    } catch (err) {
+      if (_activeRepoId === id) setRepoError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRepoSyncing(false);
+    }
+  }
+
   async function syncRepo(id: string) {
     setRepoSyncing(true);
     setRepoError(null);
     try {
-      const { repo, files } = await apiJson<RepoFiles>(`/api/repos/${id}/sync`, { method: "POST" });
+      const { repo, files, error } = await apiJson<RepoFiles>(`/api/repos/${id}/sync`, { method: "POST" });
       upsertRepo(repo);
       // don't swap the list under a running batch or after switching repos
       if (_activeRepoId !== id || _batchRunning) return;
+      if (error) setRepoError(error);
       const names = new Set(files);
       setMdFilesSaved(repoMdFiles(id, files));
       setCheckedFilesSaved(new Set([..._checkedFiles].filter(n => names.has(n))));
@@ -539,7 +561,12 @@ export default function Home() {
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono text-muted-foreground/45">
               <span className="text-muted-foreground/70">{shortRepoUrl(activeRepo.url)}</span>
-              {activeRepo.branch && <span className="inline-flex items-center gap-1"><GitBranch className="size-3" />{activeRepo.branch}</span>}
+              <BranchPicker
+                t={t}
+                repo={activeRepo}
+                disabled={repoSyncing || batchRunning}
+                onSwitch={branch => switchBranch(activeRepo.id, branch)}
+              />
               {activeRepo.path && <span>/{activeRepo.path}</span>}
               {activeRepo.syncedAt && (
                 <span>· {t.updatedAt} {formatTime(activeRepo.syncedAt)}{activeRepo.commit ? ` · ${activeRepo.commit}` : ""}</span>
@@ -836,6 +863,23 @@ function shortRepoUrl(url: string): string {
     .replace(/\/+$/, "");
 }
 
+/** Close a dropdown on a click outside `ref` or on Escape. */
+function useDismiss(ref: React.RefObject<HTMLElement | null>, open: boolean, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 /** Dropdown of saved repositories: switch, remove, connect a new one. */
 function RepoPicker({
   t, repos, activeId, disabled, onOpen, onRemove, onAdd,
@@ -852,19 +896,7 @@ function RepoPicker({
   const rootRef = useRef<HTMLDivElement>(null);
   const active = repos.find(r => r.id === activeId);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismiss(rootRef, open, () => setOpen(false));
 
   return (
     <div ref={rootRef} className="relative min-w-0">
@@ -912,6 +944,97 @@ function RepoPicker({
             className="w-full flex items-center gap-2 border-t border-white/7 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.04] transition-colors">
             <Plus className="size-3.5" />{t.addRepo}
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type BranchList = { branches: string[]; defaultBranch?: string };
+
+/**
+ * The repo's branch, clickable: lists the remote's branches (fetched when
+ * opened — always current) with a filter, and switches on click.
+ */
+function BranchPicker({
+  t, repo, disabled, onSwitch,
+}: {
+  t: HomeDict;
+  repo: RepoInfo;
+  disabled: boolean;
+  onSwitch: (branch: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [list, setList] = useState<BranchList | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  useDismiss(rootRef, open, () => setOpen(false));
+
+  useEffect(() => {
+    if (!open) return;
+    let stale = false;
+    setList(null);
+    setLoadError(null);
+    setQuery("");
+    apiJson<BranchList>(`/api/repos/${repo.id}/branches`)
+      .then(l => { if (!stale) setList(l); })
+      .catch(err => { if (!stale) setLoadError(err instanceof Error ? err.message : String(err)); });
+    return () => { stale = true; };
+  }, [open, repo.id]);
+
+  const q = query.trim().toLowerCase();
+  const shown = (list?.branches ?? []).filter(b => !q || b.toLowerCase().includes(q));
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button type="button" disabled={disabled}
+        onClick={() => setOpen(v => !v)}
+        title={t.switchBranch}
+        className="inline-flex items-center gap-1 rounded-md px-1 -mx-1 text-muted-foreground/70 hover:text-foreground hover:bg-white/5 disabled:pointer-events-none disabled:opacity-50 transition-colors">
+        <GitBranch className="size-3" />
+        <span className="max-w-48 truncate">{repo.branch ?? "—"}</span>
+        <ChevronDown className="size-3 opacity-60" />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-40 mt-1.5 w-80 max-w-[calc(100vw-3rem)] rounded-xl border border-white/10 bg-popover shadow-xl overflow-hidden font-sans">
+          <div className="p-2 border-b border-white/7">
+            <Input value={query} onChange={e => setQuery(e.target.value)}
+              placeholder={t.branchSearch} autoFocus spellCheck={false}
+              onKeyDown={e => {
+                if (e.key === "Enter" && shown[0]) { setOpen(false); if (shown[0] !== repo.branch) onSwitch(shown[0]); }
+              }}
+              className="h-7 font-mono text-[12px]" />
+          </div>
+          {loadError ? (
+            <div className="flex items-start gap-2 px-3 py-2.5 text-[11.5px] leading-relaxed text-destructive">
+              <CircleAlert className="size-3.5 shrink-0 mt-0.5" />
+              <span className="break-words min-w-0">{loadError}</span>
+            </div>
+          ) : !list ? (
+            <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground/60">
+              <Loader2 className="size-3.5 animate-spin" />{t.branchesLoading}
+            </div>
+          ) : shown.length === 0 ? (
+            <div className="px-3 py-2.5 text-xs text-muted-foreground/60">{t.noBranches}</div>
+          ) : (
+            <ul className="max-h-72 overflow-y-auto py-1">
+              {shown.map(b => (
+                <li key={b}>
+                  <button type="button"
+                    onClick={() => { setOpen(false); if (b !== repo.branch) onSwitch(b); }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/[0.04] transition-colors">
+                    <Check className={cn("size-3.5 shrink-0", b === repo.branch ? "text-foreground/80" : "opacity-0")} />
+                    <span className="flex-1 min-w-0 truncate font-mono text-[12px] text-foreground/85">{b}</span>
+                    {b === list.defaultBranch && (
+                      <span className="shrink-0 rounded border border-white/10 px-1.5 text-[10px] text-muted-foreground/60">{t.branchDefault}</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

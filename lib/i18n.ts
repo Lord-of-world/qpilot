@@ -95,6 +95,11 @@ export interface Dict {
     cancel: string;
     connect: string;
     connecting: string;
+    switchBranch: string;
+    branchSearch: string;
+    branchesLoading: string;
+    noBranches: string;
+    branchDefault: string;
   };
   action: {
     opening: string;
@@ -203,6 +208,11 @@ const en: Dict = {
     cancel: "Cancel",
     connect: "Connect",
     connecting: "Cloning…",
+    switchBranch: "Switch branch",
+    branchSearch: "Find a branch…",
+    branchesLoading: "Loading branches…",
+    noBranches: "No matching branches",
+    branchDefault: "default",
   },
   stepStatus: {
     queued: "queued",
@@ -319,6 +329,11 @@ const ru: Dict = {
     cancel: "Отмена",
     connect: "Подключить",
     connecting: "Клонирую…",
+    switchBranch: "Сменить ветку",
+    branchSearch: "Найти ветку…",
+    branchesLoading: "Загружаю ветки…",
+    noBranches: "Подходящих веток нет",
+    branchDefault: "основная",
   },
   stepStatus: {
     queued: "в очереди",

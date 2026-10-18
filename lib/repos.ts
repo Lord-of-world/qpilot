@@ -288,6 +288,15 @@ async function listMarkdown(repo: StoredRepo): Promise<string[]> {
   return out;
 }
 
+/** File list, or the reason it's empty (e.g. the folder is missing on this branch). */
+async function filesOrError(repo: StoredRepo): Promise<{ repo: RepoInfo; files: string[]; error?: string }> {
+  try {
+    return { repo: toInfo(repo), files: await listMarkdown(repo) };
+  } catch (err) {
+    return { repo: toInfo(repo), files: [], error: (err as Error).message };
+  }
+}
+
 // ── public API (used by app/api/repos/*) ─────────────────────────────────────
 
 export async function listRepos(): Promise<RepoInfo[]> {
@@ -345,26 +354,71 @@ export async function removeRepo(id: string): Promise<void> {
 }
 
 /** Pulls the latest commit of the branch and returns the fresh file list. */
-export async function syncRepo(id: string): Promise<{ repo: RepoInfo; files: string[] }> {
+export async function syncRepo(id: string): Promise<{ repo: RepoInfo; files: string[]; error?: string }> {
   return serialize(id, async () => {
     const repo = await getStored(id);
     const { branch, commit } = await pull(repo);
-    const updated = await updateStored(id, { branch, commit, syncedAt: Date.now() });
-    return { repo: toInfo(updated), files: await listMarkdown(updated) };
+    return filesOrError(await updateStored(id, { branch, commit, syncedAt: Date.now() }));
+  });
+}
+
+/** Branches on the remote, with the default one (what HEAD points to). */
+export async function listBranches(
+  id: string,
+): Promise<{ branches: string[]; defaultBranch?: string; current?: string }> {
+  const repo = await getStored(id);
+  const out = await git(["ls-remote", "--symref", "--", repo.url, "HEAD", "refs/heads/*"], repo);
+  let defaultBranch: string | undefined;
+  const branches: string[] = [];
+  for (const line of out.split("\n")) {
+    const symref = line.match(/^ref: refs\/heads\/(.+)\tHEAD$/);
+    if (symref) { defaultBranch = symref[1]; continue; }
+    const head = line.match(/^[0-9a-f]+\trefs\/heads\/(.+)$/);
+    if (head) branches.push(head[1]);
+  }
+  branches.sort((a, b) =>
+    a === defaultBranch ? -1 : b === defaultBranch ? 1 : a.localeCompare(b));
+  return { branches, defaultBranch, current: repo.branch };
+}
+
+/**
+ * Switch the repo to another branch: fetch its tip into the shallow clone
+ * (an explicit refspec works despite --single-branch) and reset to it. The
+ * branch is saved, so the repo stays on it. If the test cases folder doesn't
+ * exist on that branch, the switch still happens and `error` says why the
+ * list is empty — switching back is one click away.
+ */
+export async function switchBranch(
+  id: string,
+  rawBranch: string,
+): Promise<{ repo: RepoInfo; files: string[]; error?: string }> {
+  const branch = cleanBranch(rawBranch);
+  if (!branch) throw Object.assign(new Error("branch is required"), { status: 400 });
+  return serialize(id, async () => {
+    const repo = await getStored(id);
+    const dir = cloneDir(id);
+    let commit: string;
+    if (await exists(join(dir, ".git"))) {
+      await git(["fetch", "--depth", "1", "--no-tags", "origin", branch], repo, dir);
+      await git(["reset", "--hard", "--quiet", "FETCH_HEAD"], repo, dir);
+      commit = await git(["rev-parse", "--short", "HEAD"], repo, dir);
+    } else {
+      ({ commit } = await cloneInto({ ...repo, branch }));
+    }
+    return filesOrError(await updateStored(id, { branch, commit, syncedAt: Date.now() }));
   });
 }
 
 /** File list from the local clone, without touching the network. */
-export async function repoFiles(id: string): Promise<{ repo: RepoInfo; files: string[] }> {
+export async function repoFiles(id: string): Promise<{ repo: RepoInfo; files: string[]; error?: string }> {
   return serialize(id, async () => {
     const repo = await getStored(id);
     if (!(await exists(join(cloneDir(id), ".git")))) {
       // clone dir was removed by hand — get it back
       const { branch, commit } = await cloneInto(repo);
-      const updated = await updateStored(id, { branch, commit, syncedAt: Date.now() });
-      return { repo: toInfo(updated), files: await listMarkdown(updated) };
+      return filesOrError(await updateStored(id, { branch, commit, syncedAt: Date.now() }));
     }
-    return { repo: toInfo(repo), files: await listMarkdown(repo) };
+    return filesOrError(repo);
   });
 }
 
