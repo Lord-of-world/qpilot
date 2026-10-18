@@ -233,8 +233,9 @@ async function startServer(cfg) {
   log.write(`\n── ${new Date().toISOString()} starting on port ${port}\n`);
 
   // GUI apps get a minimal PATH; keep the system dirs the server spawns from
-  // (caffeinate for the wake lock lives in /usr/bin).
-  const PATH = [process.env.PATH, "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+  // (caffeinate for the wake lock lives in /usr/bin) plus Homebrew, where git
+  // for connected test case repos often comes from.
+  const PATH = [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
     .filter(Boolean)
     .join(":");
 
