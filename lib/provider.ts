@@ -1,11 +1,13 @@
-import type Anthropic from "@anthropic-ai/sdk";
+import Anthropic from "@anthropic-ai/sdk";
+import { readConfigFile, type StoredConfig } from "./config";
 
 // Model provider. Two backends:
 //  - anthropic: native Anthropic SDK.
 //  - openai: any OpenAI-compatible endpoint (Qwen, vLLM, Ollama, corp gateway,
 //    OpenRouter, OpenAI itself). One adapter covers them all.
 //
-// Config comes from env, set by the CLI (bin/qa-agent.js) from the user's choice.
+// Config comes from ~/.qpilot/config.json (written by the Settings page, the
+// CLI and the macOS app), falling back to env vars when there is no file.
 
 export type ProviderConfig =
   // baseURL is optional for anthropic — for corp proxies/gateways in front of Claude
@@ -16,8 +18,54 @@ export const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 
 const MAX_TOKENS = 2048;
 
-/** Build the provider config from environment variables. */
+/**
+ * The provider settings in config-file shape: the file if there is one,
+ * else env vars (dev `.env.local`, CI). null when neither has anything.
+ */
+export function currentStoredConfig(): { config: StoredConfig; source: "file" | "env" } | null {
+  const file = readConfigFile();
+  if (file) return { config: file, source: "file" };
+  const p = (process.env.QPILOT_PROVIDER || "anthropic").toLowerCase();
+  if (p === "custom" || p === "openai") {
+    if (!process.env.QPILOT_API_KEY && !process.env.QPILOT_BASE_URL) return null;
+    return {
+      source: "env",
+      config: {
+        provider: "custom",
+        apiKey: process.env.QPILOT_API_KEY || "",
+        model: process.env.QPILOT_MODEL || undefined,
+        baseURL: process.env.QPILOT_BASE_URL || undefined,
+      },
+    };
+  }
+  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.QPILOT_API_KEY || "";
+  if (!apiKey) return null;
+  return {
+    source: "env",
+    config: {
+      provider: "anthropic",
+      apiKey,
+      model: process.env.QPILOT_MODEL || undefined,
+      baseURL: process.env.QPILOT_BASE_URL || undefined,
+    },
+  };
+}
+
+export function toProviderConfig(cfg: StoredConfig): ProviderConfig {
+  return cfg.provider === "custom"
+    ? { kind: "openai", baseURL: cfg.baseURL || "", apiKey: cfg.apiKey, model: cfg.model || "" }
+    : {
+        kind: "anthropic",
+        apiKey: cfg.apiKey,
+        model: cfg.model || DEFAULT_ANTHROPIC_MODEL,
+        baseURL: cfg.baseURL || undefined,
+      };
+}
+
+/** Provider config for a run — read fresh each time, so Settings apply at once. */
 export function resolveProvider(): ProviderConfig {
+  const file = readConfigFile();
+  if (file) return toProviderConfig(file);
   const provider = (process.env.QPILOT_PROVIDER || "anthropic").toLowerCase();
 
   if (provider === "custom" || provider === "openai") {
@@ -52,12 +100,13 @@ export function parseRetryAfter(value: string | null): number | undefined {
 
 /** Human-readable message if the config is incomplete (for the 500 in /api/run). null = ok. */
 export function providerConfigError(cfg: ProviderConfig): string | null {
+  const fix = "Open Settings (the gear on the home page) to set it.";
   if (cfg.kind === "anthropic") {
-    return cfg.apiKey ? null : "ANTHROPIC_API_KEY is not configured. Run: qpilot config";
+    return cfg.apiKey ? null : `No Anthropic API key is configured. ${fix}`;
   }
-  if (!cfg.baseURL) return "Custom provider: QPILOT_BASE_URL is not set. Run: qpilot config";
-  if (!cfg.apiKey) return "Custom provider: QPILOT_API_KEY is not set. Run: qpilot config";
-  if (!cfg.model) return "Custom provider: QPILOT_MODEL is not set. Run: qpilot config";
+  if (!cfg.baseURL) return `Custom provider: the base URL is not set. ${fix}`;
+  if (!cfg.apiKey) return `Custom provider: the API token is not set. ${fix}`;
+  if (!cfg.model) return `Custom provider: the model id is not set. ${fix}`;
   return null;
 }
 
@@ -211,4 +260,58 @@ export async function callOpenAICompatible(
   }
 
   return fromOpenAI(await res.json());
+}
+
+// ── model list (Settings page) ───────────────────────────────────────────────
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  /** ISO date the model was released (Anthropic only). */
+  created?: string;
+}
+
+/**
+ * Every model the key can use, straight from the provider — never a built-in
+ * list, so new models show up the day they ship. Anthropic: GET /v1/models
+ * (newest first, all pages). OpenAI-compatible: GET <baseURL>/models.
+ */
+export async function listModels(cfg: StoredConfig): Promise<ModelOption[]> {
+  if (cfg.provider === "anthropic") {
+    const client = new Anthropic({ apiKey: cfg.apiKey, baseURL: cfg.baseURL || undefined, maxRetries: 1 });
+    const out: ModelOption[] = [];
+    try {
+      for await (const m of client.models.list({ limit: 1000 })) {
+        out.push({ id: m.id, name: m.display_name || m.id, created: m.created_at });
+      }
+    } catch (err) {
+      throw new Error(modelListError(err));
+    }
+    return out;
+  }
+
+  const url = (cfg.baseURL || "").replace(/\/+$/, "") + "/models";
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { Authorization: `Bearer ${cfg.apiKey}` } });
+  } catch (err) {
+    const cause = (err as { cause?: { code?: string; message?: string } }).cause;
+    throw new Error(`Cannot reach ${url} (${cause?.code ?? cause?.message ?? (err as Error).message})`);
+  }
+  if (!res.ok) {
+    throw new Error(modelListError({ status: res.status, message: (await res.text().catch(() => "")).slice(0, 200) }));
+  }
+  const data = (await res.json().catch(() => ({}))) as { data?: Array<{ id?: unknown }> };
+  return (data.data ?? [])
+    .map((m) => (typeof m.id === "string" ? m.id : ""))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
+    .map((id) => ({ id, name: id }));
+}
+
+function modelListError(err: unknown): string {
+  const e = err as { status?: number; message?: string };
+  if (e.status === 401 || e.status === 403) return "The API key was rejected — check that it is correct and active.";
+  if (e.status === 404) return "This endpoint has no model list (404). Enter the model id by hand.";
+  return e.message || String(err);
 }

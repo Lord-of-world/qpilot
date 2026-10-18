@@ -147,13 +147,13 @@ export default function RunPage({ params }: PageProps) {
   if (notFound) {
     return (
       <main className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-        <p className="text-6xl font-semibold text-muted-foreground/20 mb-4">404</p>
+        <p className="text-6xl font-semibold text-faint mb-4">404</p>
         <p className="text-sm text-muted-foreground mb-6">
           {t.notFound}
         </p>
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-foreground/70 hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-foreground/75 hover:text-foreground transition-colors"
         >
           <ArrowLeft className="size-3.5" />
           {t.newRun}
@@ -186,13 +186,13 @@ export default function RunPage({ params }: PageProps) {
             <p className="text-xs text-muted-foreground font-mono">
               {steps.length > 0 ? (
                 <>
-                  <span className="text-foreground/60">{doneN}/{steps.length} {t.steps}</span>
+                  <span className="text-foreground/75">{doneN}/{steps.length} {t.steps}</span>
                   {passN > 0 && <span className="text-success ml-2">· {passN} {t.passedCount}</span>}
                   {warnN > 0 && <span className="text-warning ml-2">· {warnN} {t.warnCount}</span>}
                   {failN > 0 && <span className="text-destructive ml-2">· {failN} {t.failedCount}</span>}
                 </>
               ) : (
-                <span className="text-muted-foreground/50">
+                <span className="text-subtle">
                   {isActive ? t.waitingForPlan : t.noSteps}
                 </span>
               )}
@@ -204,7 +204,7 @@ export default function RunPage({ params }: PageProps) {
                   size="sm"
                   onClick={togglePause}
                   disabled={pauseBusy || status === "waiting"}
-                  className="h-7 px-2 text-muted-foreground/60 hover:text-foreground"
+                  className="h-7 px-2 text-muted-foreground hover:text-foreground"
                 >
                   {status === "paused"
                     ? <><Play className="size-3.5 mr-1" />{t.resume}</>
@@ -212,7 +212,7 @@ export default function RunPage({ params }: PageProps) {
                   }
                 </Button>
               )}
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 font-mono tabular-nums">
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-mono tabular-nums">
                 <Clock className="size-3" />
                 {formatDuration(elapsed)}
               </span>
@@ -221,7 +221,7 @@ export default function RunPage({ params }: PageProps) {
         )}
 
         {steps.length > 0 && (
-          <div className="relative mt-3 h-[3px] rounded-full bg-white/5 overflow-hidden">
+          <div className="relative mt-3 h-[3px] rounded-full bg-surface-hover overflow-hidden">
             <div
               className={cn(
                 "absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out",
@@ -240,18 +240,18 @@ export default function RunPage({ params }: PageProps) {
         {steps.length === 0 && (
           isActive ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Loader2 className="size-5 text-muted-foreground/30 animate-spin mb-3" />
-              <p className="text-sm text-muted-foreground/50">
+              <Loader2 className="size-5 text-faint animate-spin mb-3" />
+              <p className="text-sm text-subtle">
                 {t.waitingToStart}
               </p>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <CircleAlert className="size-5 text-muted-foreground/25 mb-3" />
-              <p className="text-sm text-muted-foreground/50">
+              <CircleAlert className="size-5 text-faint mb-3" />
+              <p className="text-sm text-subtle">
                 {t.endedBeforePlan}
               </p>
-              <p className="text-xs text-muted-foreground/35 mt-1">
+              <p className="text-xs text-subtle mt-1">
                 {t.seeReason}
               </p>
             </div>
@@ -260,7 +260,7 @@ export default function RunPage({ params }: PageProps) {
         {groups.map((g, gi) => (
           <div key={gi} className="space-y-2">
             {g.title && (
-              <div className="pt-4 first:pt-0 text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground/40">
+              <div className="pt-4 first:pt-0 text-[10.5px] font-semibold uppercase tracking-widest text-subtle">
                 {g.title}
               </div>
             )}
@@ -281,8 +281,8 @@ export default function RunPage({ params }: PageProps) {
 
       {/* summary */}
       {run?.summary && (
-        <div className="mt-6 rounded-xl border border-white/7 bg-card/60 px-4 py-3">
-          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40 mb-1.5">
+        <div className="mt-6 rounded-xl border border-border bg-card/60 px-4 py-3">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-subtle mb-1.5">
             {t.summary}
           </div>
           <div className="text-sm leading-relaxed text-foreground/80">{run.summary}</div>
@@ -292,16 +292,16 @@ export default function RunPage({ params }: PageProps) {
       {/* test case instruction */}
       {run?.testCase && (
         <Collapsible className="mt-3">
-          <div className="rounded-xl border border-white/7 bg-card/60 overflow-hidden">
-            <CollapsibleTrigger className="group w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">
+          <div className="rounded-xl border border-border bg-card/60 overflow-hidden">
+            <CollapsibleTrigger className="group w-full flex items-center justify-between px-4 py-3 hover:bg-surface transition-colors">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-subtle">
                 {t.testCase}
               </span>
-              <ChevronRight className="size-3.5 text-muted-foreground/30 group-data-open:hidden" />
-              <ChevronDown className="size-3.5 text-muted-foreground/30 hidden group-data-open:inline" />
+              <ChevronRight className="size-3.5 text-faint group-data-open:hidden" />
+              <ChevronDown className="size-3.5 text-faint hidden group-data-open:inline" />
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <pre className="px-4 pb-4 text-[11.5px] font-mono leading-relaxed text-foreground/60 whitespace-pre-wrap break-words border-t border-white/5 pt-3">
+              <pre className="px-4 pb-4 text-[11.5px] font-mono leading-relaxed text-foreground/75 whitespace-pre-wrap break-words border-t border-border pt-3">
                 {run.testCase}
               </pre>
             </CollapsibleContent>
@@ -312,19 +312,19 @@ export default function RunPage({ params }: PageProps) {
       {/* files the agent could upload during this run */}
       {run?.attachments && run.attachments.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40 mr-1">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-subtle mr-1">
             <Paperclip className="size-3" />
             {t.attached}
           </span>
           {run.attachments.map((a) => (
             <span
               key={a.name}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-1"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1"
             >
-              <span className="text-[11px] font-mono text-foreground/70 max-w-[200px] truncate">
+              <span className="text-[11px] font-mono text-foreground/75 max-w-[200px] truncate">
                 {a.name}
               </span>
-              <span className="text-[10px] tabular-nums text-muted-foreground/35">
+              <span className="text-[10px] tabular-nums text-subtle">
                 {formatSize(a.size)}
               </span>
             </span>
@@ -357,9 +357,9 @@ function StarCta() {
       href="https://github.com/broxhq/qpilot"
       target="_blank"
       rel="noreferrer"
-      className="group mt-6 flex items-center gap-3 rounded-xl border border-white/7 bg-card/60 px-4 py-3 transition-colors hover:border-warning/30 hover:bg-warning/[0.03]"
+      className="group mt-6 flex items-center gap-3 rounded-xl border border-border bg-card/60 px-4 py-3 transition-colors hover:border-warning/30 hover:bg-warning/[0.03]"
     >
-      <Star className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-warning group-hover:fill-warning" />
+      <Star className="size-4 shrink-0 text-subtle transition-colors group-hover:text-warning group-hover:fill-warning" />
       <div className="min-w-0">
         <div className="text-sm text-foreground/80">
           Did qpilot save you time?{" "}
@@ -367,7 +367,7 @@ function StarCta() {
             Star it on GitHub
           </span>
         </div>
-        <div className="text-xs text-muted-foreground/50">
+        <div className="text-xs text-subtle">
           A ⭐ helps more people find it — takes two seconds.
         </div>
       </div>
@@ -388,9 +388,9 @@ interface StatusCfg {
 const STATUS_CFG: Record<string, StatusCfg> = {
   running: {
     icon: <Loader2 className="size-4 animate-spin" />,
-    color: "text-foreground/70",
-    bg: "bg-white/5",
-    border: "border-white/10",
+    color: "text-foreground/75",
+    bg: "bg-surface-hover",
+    border: "border-border",
   },
   waiting: {
     icon: <CircleAlert className="size-4" />,
@@ -400,9 +400,9 @@ const STATUS_CFG: Record<string, StatusCfg> = {
   },
   paused: {
     icon: <Pause className="size-4" />,
-    color: "text-foreground/50",
-    bg: "bg-white/5",
-    border: "border-white/10",
+    color: "text-foreground/75",
+    bg: "bg-surface-hover",
+    border: "border-border",
   },
   passed: {
     icon: <Check className="size-4" strokeWidth={2.5} />,
@@ -443,18 +443,18 @@ function BigStatus({ status, t }: { status: string; t: Dict }) {
         <div className={cn("text-sm font-semibold tracking-tight", v.color)}>
           {text.label}
         </div>
-        <div className="text-xs text-muted-foreground/60">{text.sub}</div>
+        <div className="text-xs text-muted-foreground">{text.sub}</div>
       </div>
     </div>
   );
 }
 
 const STEP_ACCENT: Record<string, { border: string; badge: string; bg: string }> = {
-  queued:  { border: "border-l-white/8",       badge: "bg-white/5 text-muted-foreground/50",     bg: ""                      },
+  queued:  { border: "border-l-border-strong",       badge: "bg-surface-hover text-subtle",     bg: ""                      },
   pass:    { border: "border-l-success/60",     badge: "bg-success/10 text-success",              bg: ""                      },
   warn:    { border: "border-l-warning/60",     badge: "bg-warning/10 text-warning",              bg: ""                      },
   fail:    { border: "border-l-destructive/60", badge: "bg-destructive/10 text-destructive",      bg: "bg-destructive/[0.03]" },
-  skipped: { border: "border-l-white/8",        badge: "bg-white/4 text-muted-foreground/30",     bg: ""                      },
+  skipped: { border: "border-l-border-strong",        badge: "bg-surface text-faint",     bg: ""                      },
 };
 
 const ACTIVE_ACCENT = {
@@ -501,12 +501,12 @@ function StepCard({
     <Collapsible open={open} onOpenChange={setOpen}>
       <div
         className={cn(
-          "rounded-xl border border-white/7 border-l-2 overflow-hidden transition-colors",
+          "rounded-xl border border-border border-l-2 overflow-hidden transition-colors",
           a.border,
           a.bg,
         )}
       >
-        <CollapsibleTrigger className="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
+        <CollapsibleTrigger className="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface transition-colors">
           <Badge
             className={cn(
               "border-0 text-[9.5px] tracking-widest font-semibold shrink-0 gap-1 uppercase rounded-md px-1.5",
@@ -523,35 +523,35 @@ function StepCard({
             )}
           </Badge>
           <span className="flex-1 min-w-0 text-[13px] text-foreground/80">
-            <span className="text-muted-foreground/40 mr-2 font-mono text-[11px]">
+            <span className="text-subtle mr-2 font-mono text-[11px]">
               {String(displayNum ?? step.num).padStart(2, "0")}
             </span>
             {step.description}
           </span>
-          <ChevronRight className="size-3.5 text-muted-foreground/30 shrink-0 group-data-open:hidden" />
-          <ChevronDown className="size-3.5 text-muted-foreground/30 shrink-0 hidden group-data-open:inline" />
+          <ChevronRight className="size-3.5 text-faint shrink-0 group-data-open:hidden" />
+          <ChevronDown className="size-3.5 text-faint shrink-0 hidden group-data-open:inline" />
         </CollapsibleTrigger>
 
         {step.evidence && (
-          <div className="px-4 pb-3 -mt-0.5 text-[11.5px] text-muted-foreground/60 leading-relaxed font-mono">
+          <div className="px-4 pb-3 -mt-0.5 text-[11.5px] text-muted-foreground leading-relaxed font-mono">
             {step.evidence}
           </div>
         )}
 
         <CollapsibleContent>
-          <div className="px-4 pb-4 pt-3 space-y-3 border-t border-white/5">
+          <div className="px-4 pb-4 pt-3 space-y-3 border-t border-border">
             {step.screenshot && (
               <a
                 href={step.screenshot}
                 target="_blank"
                 rel="noreferrer"
-                className="block rounded-lg overflow-hidden border border-white/8 hover:border-white/15 transition-colors"
+                className="block rounded-lg overflow-hidden border border-border hover:border-border-strong transition-colors"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={step.screenshot}
                   alt={`screenshot step ${step.num}`}
-                  className="max-h-64 w-full object-contain bg-black/20"
+                  className="max-h-64 w-full object-contain bg-surface"
                 />
               </a>
             )}
@@ -562,7 +562,7 @@ function StepCard({
                 ))}
               </div>
             ) : (
-              <div className="text-[11px] text-muted-foreground/30">
+              <div className="text-[11px] text-faint">
                 {t.noEvents}
               </div>
             )}
@@ -604,7 +604,7 @@ function describeAction(name?: string, input?: unknown, t: Dict = dict("en")): s
 function renderLog(e: RunEvent, t: Dict): { icon: string; text: string; cls: string } {
   switch (e.kind) {
     case "action":
-      return { icon: "→", text: describeAction(e.toolName, e.toolInput, t), cls: "text-foreground/70" };
+      return { icon: "→", text: describeAction(e.toolName, e.toolInput, t), cls: "text-foreground/75" };
     case "step": {
       const s = e.step?.status ?? "";
       const cls = s === "pass" ? "text-success" : s === "fail" ? "text-destructive" : "text-warning";
@@ -614,20 +614,20 @@ function renderLog(e: RunEvent, t: Dict): { icon: string; text: string; cls: str
     case "observation": {
       const t = e.text ?? "";
       if (t.startsWith("Error:")) return { icon: "✗", text: t, cls: "text-destructive" };
-      return { icon: "·", text: t, cls: "text-muted-foreground/40" };
+      return { icon: "·", text: t, cls: "text-subtle" };
     }
     case "question":
       return { icon: "?", text: `${t.asking}: ${e.question?.prompt ?? ""}`, cls: "text-warning" };
     case "answer":
-      return { icon: "✎", text: t.userAnswered, cls: "text-foreground/50" };
+      return { icon: "✎", text: t.userAnswered, cls: "text-foreground/75" };
     case "thought":
-      return { icon: "›", text: e.text ?? "", cls: "text-muted-foreground/40 italic" };
+      return { icon: "›", text: e.text ?? "", cls: "text-subtle italic" };
     case "done":
-      return { icon: "■", text: `${t.runFinished} — ${t.status[e.status ?? ""]?.label ?? e.status ?? ""}`, cls: "text-foreground/60" };
+      return { icon: "■", text: `${t.runFinished} — ${t.status[e.status ?? ""]?.label ?? e.status ?? ""}`, cls: "text-foreground/75" };
     case "error":
       return { icon: "✗", text: e.text ?? "", cls: "text-destructive" };
     default:
-      return { icon: "·", text: "", cls: "text-muted-foreground/30" };
+      return { icon: "·", text: "", cls: "text-faint" };
   }
 }
 
@@ -636,7 +636,7 @@ function LogLine({ event, t }: { event: RunEvent; t: Dict }) {
   const time = new Date(event.ts).toLocaleTimeString("en-US", { hour12: false });
   return (
     <div className="flex gap-2.5 text-[11.5px] leading-relaxed items-baseline font-mono">
-      <span className="shrink-0 tabular-nums text-muted-foreground/25 text-[10px]">
+      <span className="shrink-0 tabular-nums text-faint text-[10px]">
         {time}
       </span>
       <span className={cn("shrink-0 w-3.5 text-center", cls)}>{icon}</span>

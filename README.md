@@ -85,6 +85,13 @@ a **Stop** button. Finished runs land under **Recent runs**.
 
 ## Models
 
+Open **Settings** (top right of the home page) to pick the provider, paste the API
+key and choose the model. For Anthropic the model list is loaded live from the API,
+so it always shows every model your key can use. Changes apply to the next run — no
+restart. On first launch qpilot opens Settings by itself.
+
+From a terminal the same settings are available with:
+
 ```bash
 npx qpilot config
 ```
@@ -106,6 +113,8 @@ provider you can skip setup entirely with an `ANTHROPIC_API_KEY` env var or a
 
 ## Good to know
 
+- Light and dark themes: follows your system by default, or pick one with the
+  switch next to **Settings**.
 - Everything runs locally. Nothing leaves your machine except the model calls, so
   qpilot works against staging and internal networks.
 - Browser visibility is per run: **Run** stays headless, **Run with preview** lets
