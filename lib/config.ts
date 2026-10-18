@@ -48,10 +48,28 @@ export function maskKey(key: string): string {
 
 const isUrl = (v: string) => /^https?:\/\/\S+$/.test(v);
 
+/** Base URLs compared the way they are saved: trimmed, no trailing slash. */
+export const sameBaseURL = (a: string | undefined, b: string | undefined) =>
+  (a ?? "").trim().replace(/\/+$/, "") === (b ?? "").trim().replace(/\/+$/, "");
+
+/**
+ * The saved key may be reused only for the provider *and* base URL it was
+ * saved with. Otherwise a request that merely changes the base URL could
+ * make the server send the saved key to someone else's server.
+ */
+export function reusableKey(
+  current: StoredConfig | null,
+  provider: StoredConfig["provider"],
+  baseURL: string | undefined,
+): string {
+  return current && current.provider === provider && sameBaseURL(current.baseURL, baseURL)
+    ? current.apiKey
+    : "";
+}
+
 /**
  * Validate what the Settings form sent. An empty apiKey keeps the current
- * key — but only for the same provider: a Claude key is no use to a custom
- * endpoint and vice versa.
+ * key — but only while provider and base URL stay the same (see reusableKey).
  */
 export function normalizeConfig(
   input: { provider?: unknown; apiKey?: unknown; model?: unknown; baseURL?: unknown },
@@ -59,11 +77,14 @@ export function normalizeConfig(
 ): StoredConfig {
   const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const provider = input.provider === "custom" ? "custom" : "anthropic";
-  const apiKey = s(input.apiKey) || (current?.provider === provider ? current.apiKey : "");
   const model = s(input.model);
   const baseURL = s(input.baseURL).replace(/\/+$/, "");
+  const apiKey = s(input.apiKey) || reusableKey(current, provider, baseURL);
 
   if (!apiKey) {
+    if (current?.apiKey && current.provider === provider) {
+      throw new Error("Re-enter the API key to change the base URL — the saved key is only ever sent to the address it was saved with.");
+    }
     throw new Error(provider === "custom" ? "API token is required" : "Anthropic API key is required");
   }
   if (baseURL && !isUrl(baseURL)) throw new Error("Base URL must start with http:// or https://");

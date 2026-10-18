@@ -113,6 +113,7 @@ export interface Dict {
     apiToken: string;
     keySaved: string;
     keyFromEnv: string;
+    keyRebind: string;
     modelLabel: string;
     modelHintAnthropic: string;
     modelHintCustom: string;
@@ -273,6 +274,7 @@ const en: Dict = {
     apiToken: "API token",
     keySaved: "Saved key {hint} — leave empty to keep it",
     keyFromEnv: "Using {hint} from the environment — leave empty to keep it",
+    keyRebind: "Re-enter the key for this address — the saved key is only sent to the base URL it was saved with",
     modelLabel: "Model",
     modelHintAnthropic: "Loaded live from Anthropic: every model your key can use.",
     modelHintCustom: "Loaded from the endpoint's /models list. The model must support tool calling.",
@@ -433,6 +435,7 @@ const ru: Dict = {
     apiToken: "API-токен",
     keySaved: "Сохранён ключ {hint} — оставьте пустым, чтобы не менять",
     keyFromEnv: "Используется {hint} из переменных окружения — оставьте пустым, чтобы не менять",
+    keyRebind: "Введите ключ заново для этого адреса — сохранённый ключ отправляется только на тот Base URL, с которым его сохранили",
     modelLabel: "Модель",
     modelHintAnthropic: "Список загружается из Anthropic: все модели, доступные вашему ключу.",
     modelHintCustom: "Список берётся из /models на сервере. Модель должна поддерживать tool calling.",

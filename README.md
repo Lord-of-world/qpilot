@@ -136,6 +136,10 @@ provider you can skip setup entirely with an `ANTHROPIC_API_KEY` env var or a
   switch next to **Settings**.
 - Everything runs locally. Nothing leaves your machine except the model calls, so
   qpilot works against staging and internal networks.
+- The local API only answers qpilot's own pages: requests from other websites
+  are refused, and so are host names other than `localhost` / `127.0.0.1`.
+  Serving qpilot under another name (e.g. behind a reverse proxy)? List it in
+  `QPILOT_ALLOWED_HOSTS`.
 - Browser visibility is per run: **Run** stays headless, **Run with preview** lets
   you watch Chrome work.
 - Runs are held in memory, last 50 only — restarting the server clears them.

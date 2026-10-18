@@ -33,6 +33,7 @@ type SettingsDict = ReturnType<typeof dict>["settings"];
 const CARD = "rounded-xl border border-border bg-card shadow-sm";
 const LABEL = "text-[13px] font-medium text-foreground";
 const HINT = "text-xs leading-relaxed text-subtle";
+const normUrl = (u: string | undefined) => (u ?? "").trim().replace(/\/+$/, "");
 
 export default function SettingsPage() {
   // useSearchParams needs a Suspense boundary in the app router
@@ -74,14 +75,17 @@ function SettingsForm() {
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // the saved key counts only for the provider it was saved for
-  const keyUsable = (p: Provider, typed: string, s = saved) =>
-    Boolean(typed.trim() || (s?.hasKey && s.provider === p));
+  // the saved key counts only for the provider and base URL it was saved
+  // for — the server enforces the same rule (lib/config.ts reusableKey)
+  const savedKeyFits = (p: Provider, url: string, s = saved) =>
+    Boolean(s?.hasKey && s.provider === p && normUrl(s.baseURL) === normUrl(url));
+  const keyUsable = (p: Provider, typed: string, url = baseURL, s = saved) =>
+    Boolean(typed.trim() || savedKeyFits(p, url, s));
 
   async function loadModels(p = provider, key = apiKey, url = baseURL, s = saved) {
     const req = ++modelsReq.current;
     setModelsError(null);
-    if (!keyUsable(p, key, s) || (p === "custom" && !url.trim())) {
+    if (!keyUsable(p, key, url, s) || (p === "custom" && !url.trim())) {
       setModels(null);
       return;
     }
@@ -140,10 +144,12 @@ function SettingsForm() {
     }
   }
 
-  const sameProviderKey = saved?.hasKey && saved.provider === provider;
-  const keyNote = sameProviderKey
-    ? (saved.source === "env" ? t.keyFromEnv : t.keySaved).replace("{hint}", saved.keyHint)
-    : null;
+  const sameProviderKey = Boolean(saved?.hasKey && saved.provider === provider);
+  const keyNote = !saved || !sameProviderKey || apiKey.trim()
+    ? null
+    : savedKeyFits(provider, baseURL)
+      ? (saved.source === "env" ? t.keyFromEnv : t.keySaved).replace("{hint}", saved.keyHint)
+      : t.keyRebind;
   const effectiveModel = model || (provider === "anthropic" ? saved?.defaultModel ?? "" : "");
 
   return (
@@ -200,7 +206,7 @@ function SettingsForm() {
           <Field label={provider === "anthropic" ? t.apiKey : t.apiToken} hint={keyNote ?? undefined}>
             <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
               onBlur={() => { if (apiKey.trim()) loadModels(); }}
-              placeholder={sameProviderKey ? "••••••••" : provider === "anthropic" ? "sk-ant-…" : ""}
+              placeholder={savedKeyFits(provider, baseURL) ? "••••••••" : provider === "anthropic" ? "sk-ant-…" : ""}
               spellCheck={false} autoComplete="off" autoFocus={welcome}
               className="font-mono text-[13px]" />
           </Field>
@@ -239,7 +245,7 @@ function SettingsForm() {
           {provider === "anthropic" && (
             <Field label={t.baseUrl} optional={t.optional} hint={t.baseUrlHintAnthropic}>
               <Input value={baseURL} onChange={e => setBaseURL(e.target.value)}
-                onBlur={() => { if (baseURL.trim() !== (saved?.baseURL ?? "")) loadModels(); }}
+                onBlur={() => loadModels()}
                 placeholder="https://api.anthropic.com"
                 spellCheck={false} autoComplete="off" className="font-mono text-[13px]" />
             </Field>
