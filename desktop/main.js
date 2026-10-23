@@ -1,8 +1,8 @@
 "use strict";
 
-// qpilot as a macOS app. The Next.js standalone server (the same one the CLI in
-// bin/qa-agent.js starts) runs in an Electron utility process, and a window
-// shows its UI. Provider settings live in the web UI (/settings), which the
+// qpilot as a desktop app for macOS and Windows. The Next.js standalone server
+// (the same one the CLI in bin/qa-agent.js starts) runs in an Electron utility
+// process, and a window shows its UI. Provider settings live in the web UI (/settings), which the
 // server saves to ~/.qpilot/config.json — the same file the CLI uses.
 
 const {
@@ -19,6 +19,7 @@ const { join } = require("path");
 const fs = require("fs");
 
 const FIRST_PORT = 3847;
+const IS_MAC = process.platform === "darwin";
 
 const SERVER_PATH = app.isPackaged
   ? join(process.resourcesPath, "server", "server.js")
@@ -43,6 +44,10 @@ const STRINGS = {
     hideOthers: "Hide Others",
     unhide: "Show All",
     quit: "Quit qpilot",
+    file: "File",
+    exit: "Exit",
+    help: "Help",
+    close: "Close",
     edit: "Edit",
     undo: "Undo",
     redo: "Redo",
@@ -80,6 +85,10 @@ const STRINGS = {
     hideOthers: "Скрыть остальные",
     unhide: "Показать все",
     quit: "Завершить qpilot",
+    file: "Файл",
+    exit: "Выход",
+    help: "Справка",
+    close: "Закрыть",
     edit: "Правка",
     undo: "Отменить",
     redo: "Повторить",
@@ -158,12 +167,15 @@ async function startServer() {
   const log = logStream();
   log.write(`\n── ${new Date().toISOString()} starting on port ${port}\n`);
 
-  // GUI apps get a minimal PATH; keep the system dirs the server spawns from
-  // (caffeinate for the wake lock lives in /usr/bin) plus Homebrew, where git
-  // for connected test case repos often comes from.
-  const PATH = [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
-    .filter(Boolean)
-    .join(":");
+  // macOS GUI apps get a minimal PATH; keep the system dirs the server spawns
+  // from (caffeinate for the wake lock lives in /usr/bin) plus Homebrew, where
+  // git for connected test case repos often comes from. Windows apps inherit
+  // the user's full PATH (Git for Windows adds itself there).
+  const PATH = IS_MAC
+    ? [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+        .filter(Boolean)
+        .join(":")
+    : process.env.PATH;
 
   const child = utilityProcess.fork(SERVER_PATH, [], {
     cwd: join(SERVER_PATH, ".."),
@@ -253,14 +265,26 @@ function openMainWindow(path = "/") {
 }
 
 function buildMenu() {
+  const openSettings = () => serverUrl && openMainWindow("/settings");
+  const showLog = () => shell.openPath(join(app.getPath("logs"), "server.log"));
+  // Windows: the usual File / Edit / View / Window / Help menu bar
+  const appMenu = IS_MAC ? null : {
+    label: L.file,
+    submenu: [
+      { label: L.settings, accelerator: "Ctrl+,", click: openSettings },
+      { label: L.showLog, click: showLog },
+      { type: "separator" },
+      { role: "quit", label: L.exit },
+    ],
+  };
   const template = [
-    {
+    appMenu ?? {
       label: app.name,
       submenu: [
         { role: "about", label: L.about },
         { type: "separator" },
-        { label: L.settings, accelerator: "CmdOrCtrl+,", click: () => serverUrl && openMainWindow("/settings") },
-        { label: L.showLog, click: () => shell.openPath(join(app.getPath("logs"), "server.log")) },
+        { label: L.settings, accelerator: "CmdOrCtrl+,", click: openSettings },
+        { label: L.showLog, click: showLog },
         { type: "separator" },
         { role: "services", label: L.services },
         { type: "separator" },
@@ -281,7 +305,7 @@ function buildMenu() {
         { role: "cut", label: L.cut },
         { role: "copy", label: L.copy },
         { role: "paste", label: L.paste },
-        { role: "pasteAndMatchStyle", label: L.pasteAndMatchStyle },
+        ...(IS_MAC ? [{ role: "pasteAndMatchStyle", label: L.pasteAndMatchStyle }] : []),
         { role: "delete", label: L.delete },
         { role: "selectAll", label: L.selectAll },
       ],
@@ -300,17 +324,26 @@ function buildMenu() {
         { role: "togglefullscreen", label: L.fullScreen },
       ],
     },
-    {
-      // role "window" lets macOS add the open-windows list and tiling items
-      label: L.window,
-      role: "window",
-      submenu: [
-        { role: "minimize", label: L.minimize },
-        { role: "zoom", label: L.zoom },
-        { type: "separator" },
-        { role: "front", label: L.front },
-      ],
-    },
+    IS_MAC
+      ? {
+          // role "window" lets macOS add the open-windows list and tiling items
+          label: L.window,
+          role: "window",
+          submenu: [
+            { role: "minimize", label: L.minimize },
+            { role: "zoom", label: L.zoom },
+            { type: "separator" },
+            { role: "front", label: L.front },
+          ],
+        }
+      : {
+          label: L.window,
+          submenu: [
+            { role: "minimize", label: L.minimize },
+            { role: "close", label: L.close },
+          ],
+        },
+    ...(IS_MAC ? [] : [{ label: L.help, submenu: [{ role: "about", label: L.about }] }]),
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -343,8 +376,11 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   // macOS: closing the window keeps the app (and any running test) alive;
-  // clicking the Dock icon brings the window back.
-  app.on("window-all-closed", () => {});
+  // clicking the Dock icon brings the window back. Windows has no such
+  // convention (nothing in the taskbar to click), so closing the window quits.
+  app.on("window-all-closed", () => {
+    if (!IS_MAC) app.quit();
+  });
   app.on("activate", () => {
     if (serverUrl) openMainWindow();
   });

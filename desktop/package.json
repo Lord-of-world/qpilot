@@ -2,14 +2,16 @@
   "name": "qpilot-desktop",
   "productName": "qpilot",
   "version": "0.10.0",
-  "description": "qpilot as a macOS app: the Next.js server runs inside Electron",
+  "description": "qpilot as a desktop app for macOS and Windows: the Next.js server runs inside Electron",
   "private": true,
   "main": "main.js",
   "scripts": {
     "build:web": "npm --prefix .. run build",
     "start": "npm run build:web && electron .",
     "dev": "electron .",
-    "dist": "npm run build:web && electron-builder --mac"
+    "dist": "npm run build:web && electron-builder --mac --win",
+    "dist:mac": "npm run build:web && electron-builder --mac",
+    "dist:win": "npm run build:web && electron-builder --win"
   },
   "license": "MIT",
   "devDependencies": {
@@ -32,13 +34,38 @@
       "category": "public.app-category.developer-tools",
       "icon": "build/icon.png",
       "target": [
-        "dmg"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "identity": null
     },
     "dmg": {
       "title": "qpilot"
     },
-    "afterPack": "scripts/after-pack.js"
+    "afterPack": "scripts/after-pack.js",
+    "artifactName": "qpilot-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "qpilot",
+      "uninstallDisplayName": "qpilot"
+    }
   }
 }

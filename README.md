@@ -26,6 +26,18 @@ the UI in your browser.
 **Needs:** Node.js 20.12+, Google Chrome, and an [Anthropic API key](https://console.anthropic.com)
 — or any OpenAI-compatible endpoint (Qwen, vLLM, Ollama, a corporate gateway).
 
+### Desktop app
+
+Prefer an app to a terminal? Download an installer and skip Node.js and npm:
+
+- macOS: [Apple Silicon](https://github.com/Lord-of-world/qpilot/releases/latest/download/qpilot-mac-arm64.dmg) ·
+  [Intel](https://github.com/Lord-of-world/qpilot/releases/latest/download/qpilot-mac-x64.dmg)
+- Windows: [x64 installer](https://github.com/Lord-of-world/qpilot/releases/latest/download/qpilot-win-x64.exe)
+
+All releases are on the [Releases page](https://github.com/Lord-of-world/qpilot/releases). The installers aren't signed
+with an Apple or Microsoft certificate, so the first launch needs one extra click. See
+[desktop/README.md](desktop/README.md) for that and for building them yourself.
+
 ## How it works
 
 1. Paste a plain-text test case — the messy kind a PM writes in Confluence is fine.

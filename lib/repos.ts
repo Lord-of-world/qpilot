@@ -204,7 +204,9 @@ function git(args: string[], repo: StoredRepo | null, cwd?: string): Promise<str
 
 function gitErrorMessage(err: ExecFileException, stderr: string, withToken: boolean): string {
   if (err.code === "ENOENT") {
-    return "git is not installed. On macOS run `xcode-select --install`, then try again.";
+    return process.platform === "win32"
+      ? "git is not installed. Install Git for Windows (https://git-scm.com/download/win), then restart qpilot."
+      : "git is not installed. On macOS run `xcode-select --install`, then try again.";
   }
   if (/xcrun: error|no developer tools/i.test(stderr)) {
     return "git needs the Xcode Command Line Tools. Run `xcode-select --install`, then try again.";
