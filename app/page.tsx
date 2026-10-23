@@ -1054,7 +1054,7 @@ function AddRepoDialog({
   const [form, setForm] = useState(empty);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isHttps = /^https?:\/\//i.test(form.url.trim());
+  const isHttps = /^https:\/\//i.test(form.url.trim()); // tokens only over https
 
   useEffect(() => {
     if (open) { setForm(empty); setError(null); setBusy(false); }

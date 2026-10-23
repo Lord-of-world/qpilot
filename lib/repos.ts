@@ -1,6 +1,6 @@
 import { execFile, type ExecFileException } from "node:child_process";
 import crypto from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { QPILOT_HOME } from "./config";
 
@@ -162,12 +162,17 @@ function repoName(url: string): string {
 /**
  * Runs git non-interactively: no password prompts (a missing credential fails
  * fast instead of hanging the request), a new SSH host key is accepted once,
- * and the token — if any — goes in as an HTTP header via GIT_CONFIG_* env, so
- * it never appears in argv, on disk, or in .git/config.
+ * symlinks are checked out as plain files, and the token — if any — goes in
+ * as an HTTP header via GIT_CONFIG_* env (https only), so it never appears in
+ * argv, on disk, or in .git/config.
  */
 function git(args: string[], repo: StoredRepo | null, cwd?: string): Promise<string> {
-  const config: Array<[string, string]> = [["protocol.ext.allow", "never"]];
-  if (repo?.token && /^https?:/.test(repo.url)) {
+  const config: Array<[string, string]> = [
+    ["protocol.ext.allow", "never"],
+    // check symlinks out as plain files, so a repo can't point outside its clone
+    ["core.symlinks", "false"],
+  ];
+  if (repo?.token && /^https:/.test(repo.url)) {
     const origin = new URL(repo.url).origin;
     const basic = Buffer.from(`${repo.username || "git"}:${repo.token}`).toString("base64");
     config.push([`http.${origin}/.extraHeader`, `Authorization: Basic ${basic}`]);
@@ -225,7 +230,26 @@ function gitErrorMessage(err: ExecFileException, stderr: string, withToken: bool
   return text || err.message;
 }
 
-const cloneDir = (id: string) => join(CLONES, id);
+// Ids are generated here (6 random bytes, hex). Anything else — "..%2F..",
+// a path — must never reach join() and rm(): treat it as an unknown repo.
+const ID_RE = /^[0-9a-f]{12}$/;
+
+function cloneDir(id: string): string {
+  if (!ID_RE.test(id)) throw Object.assign(new Error("Repository not found"), { status: 404 });
+  return join(CLONES, id);
+}
+
+/**
+ * Symlink-resolved path of `p`, or null if it doesn't exist or resolves to
+ * somewhere outside the repo's clone. Checking the lexical path isn't enough:
+ * a folder or file in the repo can be a symlink to anywhere on disk.
+ */
+async function realInsideClone(id: string, p: string): Promise<string | null> {
+  const root = await realpath(cloneDir(id)).catch(() => null);
+  const real = await realpath(p).catch(() => null);
+  if (!root || !real) return null;
+  return real === root || real.startsWith(root + sep) ? real : null;
+}
 
 async function exists(p: string): Promise<boolean> {
   return stat(p).then(() => true, () => false);
@@ -272,6 +296,8 @@ async function listMarkdown(repo: StoredRepo): Promise<string[]> {
   if (!(await exists(base))) {
     throw new Error(`Folder "${repo.path}" does not exist on branch ${repo.branch ?? "(default)"}`);
   }
+  const realBase = await realInsideClone(repo.id, base);
+  if (!realBase) throw new Error(`Folder "${repo.path}" points outside the repository`);
   const out: string[] = [];
   async function walk(dir: string, rel: string): Promise<void> {
     const entries = await readdir(dir, { withFileTypes: true });
@@ -280,11 +306,13 @@ async function listMarkdown(repo: StoredRepo): Promise<string[]> {
       if (out.length >= MAX_FILES) return;
       if (e.name.startsWith(".") || e.name === "node_modules") continue;
       const childRel = rel ? `${rel}/${e.name}` : e.name;
+      // Dirent types come from lstat: symlinks are neither directories nor
+      // files here, so the walk never follows them
       if (e.isDirectory()) await walk(join(dir, e.name), childRel);
       else if (e.isFile() && /\.md$/i.test(e.name)) out.push(childRel);
     }
   }
-  await walk(base, "");
+  await walk(realBase, "");
   return out;
 }
 
@@ -304,7 +332,7 @@ export async function listRepos(): Promise<RepoInfo[]> {
 }
 
 async function getStored(id: string): Promise<StoredRepo> {
-  const repo = (await loadList()).find((r) => r.id === id);
+  const repo = ID_RE.test(id) ? (await loadList()).find((r) => r.id === id) : undefined;
   if (!repo) throw Object.assign(new Error("Repository not found"), { status: 404 });
   return repo;
 }
@@ -322,6 +350,13 @@ export async function addRepo(input: NewRepoInput): Promise<{ repo: RepoInfo; fi
     token: input.token?.trim() || parsed.token || undefined,
     createdAt: Date.now(),
   };
+  if (repo.token && !repo.url.startsWith("https://")) {
+    throw new Error(
+      repo.url.startsWith("http://")
+        ? "An access token can't be sent over plain http:// — use an https:// URL."
+        : "An access token is only used with https:// URLs; SSH URLs use your SSH key.",
+    );
+  }
 
   return serialize(repo.id, async () => {
     const { branch, commit } = await cloneInto(repo);
@@ -346,6 +381,7 @@ export async function addRepo(input: NewRepoInput): Promise<{ repo: RepoInfo; fi
 
 export async function removeRepo(id: string): Promise<void> {
   await serialize(id, async () => {
+    await getStored(id); // unknown id (or a path in disguise) → 404, nothing deleted
     await serialize("list", async () => {
       await saveList((await loadList()).filter((r) => r.id !== id));
     });
@@ -430,8 +466,16 @@ export async function readRepoFile(id: string, rel: string): Promise<string> {
   if (!full.startsWith(base + sep) || !/\.md$/i.test(full)) {
     throw Object.assign(new Error("Invalid file path"), { status: 400 });
   }
-  const info = await stat(full).catch(() => null);
+  const real = await realInsideClone(repo.id, full);
+  if (!real) {
+    const missing = !(await exists(full));
+    throw Object.assign(
+      new Error(missing ? "File not found — pull the latest changes" : "Invalid file path"),
+      { status: missing ? 404 : 400 },
+    );
+  }
+  const info = await stat(real).catch(() => null);
   if (!info?.isFile()) throw Object.assign(new Error("File not found — pull the latest changes"), { status: 404 });
   if (info.size > MAX_FILE_BYTES) throw Object.assign(new Error("File is larger than 1 MB"), { status: 413 });
-  return readFile(full, "utf-8");
+  return readFile(real, "utf-8");
 }

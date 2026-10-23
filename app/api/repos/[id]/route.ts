@@ -28,6 +28,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  await removeRepo(id);
+  try {
+    await removeRepo(id);
+  } catch (err) {
+    const status = (err as { status?: number }).status ?? 500;
+    return NextResponse.json({ error: (err as Error).message }, { status });
+  }
   return NextResponse.json({ ok: true });
 }
